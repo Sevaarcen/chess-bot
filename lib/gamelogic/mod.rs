@@ -1,9 +1,13 @@
 use core::fmt;
 use std::error::Error;
 
+use self::pieces::ChessPiece;
+
 pub mod board;
 pub mod pieces;
 
+
+/// Different types of Errors related to chess logic specifically. All types wrap String containing a more detailed error message.
 #[derive(Debug)]
 pub enum ChessError {
     InvalidArgument(String),
@@ -16,6 +20,44 @@ impl fmt::Display for ChessError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{:?}", &self)
     }
+}
+
+
+/// Flag for the different types of chess moves to help control logic flow for special move variants
+#[derive(Debug, PartialEq, Eq)]
+pub enum MoveType {
+    Standard,
+    DoubleAdvance,
+    EnPassant,
+    Castle,
+    Promotion
+}
+
+
+/// Struct to hold info about chess moves and associated data we can use for filtering and move quality ranking
+#[derive(Debug)]
+pub struct ChessMove {
+    pub destination: (usize, usize),
+    pub move_type: MoveType,
+    pub captures: Option<ChessPiece>,
+    pub dest_threatened: bool,
+    pub dest_defended: bool
+}
+
+impl PartialEq for ChessMove {
+    fn eq(&self, other: &Self) -> bool {
+        self.destination == other.destination
+    }
+}
+
+
+impl Eq for ChessMove {}
+
+
+pub enum GameEnd {
+    WhiteVictory,
+    BlackVictory,
+    Draw
 }
 
 

@@ -5,14 +5,11 @@ extern crate chessbot_lib;
 
 fn main() {
 
+    println!(">>>>>  DEFAULT BOARD SETUP <<<<<\n");
     let default_board = chessbot_lib::gamelogic::board::ChessBoard::new();
     println!("{}", default_board);
 
-    let piece = default_board.get_square_by_name("a1".to_string()).unwrap().unwrap();
-    let moves = piece.get_moves(&default_board);
-    println!("{:?}", moves);
-    println!();
-
+    println!(">>>>>  CUSTOM BOARD SETUP <<<<<\n");
     // Slightly modified https://www.chess.com/puzzles/problem/691396
     let mut custom_setup_squares = [[None; 8]; 8];
     custom_setup_squares[0][0] = Some(ChessPiece { position: (0,0), side: Side::White, piece_type: PieceType::Rook});
@@ -26,7 +23,7 @@ fn main() {
     custom_setup_squares[2][5] = Some(ChessPiece { position: (2,5), side: Side::Black, piece_type: PieceType::Pawn}); // moved 1 down
     custom_setup_squares[3][1] = Some(ChessPiece { position: (3,1), side: Side::White, piece_type: PieceType::Pawn});
     custom_setup_squares[3][4] = Some(ChessPiece { position: (3,4), side: Side::White, piece_type: PieceType::Pawn});
-    custom_setup_squares[4][0] = Some(ChessPiece { position: (4,0), side: Side::White, piece_type: PieceType::King});
+    custom_setup_squares[4][0] = Some(ChessPiece { position: (4,0), side: Side::White, piece_type: PieceType::Rook}); // changed from King to Rook
     custom_setup_squares[4][3] = Some(ChessPiece { position: (4,3), side: Side::Black, piece_type: PieceType::Bishop}); // added piece
     custom_setup_squares[4][4] = Some(ChessPiece { position: (4,4), side: Side::Black, piece_type: PieceType::Pawn});
     custom_setup_squares[5][1] = Some(ChessPiece { position: (5,1), side: Side::White, piece_type: PieceType::Pawn});
@@ -37,7 +34,7 @@ fn main() {
     custom_setup_squares[6][1] = Some(ChessPiece { position: (6,1), side: Side::White, piece_type: PieceType::Pawn});
     custom_setup_squares[7][5] = Some(ChessPiece { position: (7,5), side: Side::Black, piece_type: PieceType::Queen});  // moved over
     custom_setup_squares[6][6] = Some(ChessPiece { position: (6,6), side: Side::Black, piece_type: PieceType::Pawn});
-    custom_setup_squares[7][0] = Some(ChessPiece { position: (7,0), side: Side::White, piece_type: PieceType::Rook});
+    custom_setup_squares[7][0] = Some(ChessPiece { position: (7,0), side: Side::White, piece_type: PieceType::King}); // changed from Rook to King
     custom_setup_squares[7][2] = Some(ChessPiece { position: (7,2), side: Side::White, piece_type: PieceType::Knight});  // changed from pawn to Knight
     custom_setup_squares[7][6] = Some(ChessPiece { position: (7,6), side: Side::Black, piece_type: PieceType::Pawn});
     custom_setup_squares[7][7] = Some(ChessPiece { position: (7,7), side: Side::Black, piece_type: PieceType::Rook});
@@ -50,21 +47,26 @@ fn main() {
 
     let piece = custom_board.get_square_by_name("d5".to_string()).unwrap().unwrap();
     let moves = piece.get_moves(&custom_board);
-    println!("d5 moves --> {:?}", moves.iter().map(|pair| index_pair_to_name(pair.0, pair.1).unwrap()).collect::<Vec<String>>());
+    println!("d5 moves --> {:?}", moves.iter().map(|m| index_pair_to_name(m.destination.0, m.destination.1).unwrap()).collect::<Vec<String>>());
 
     let piece = custom_board.get_square_by_name("e1".to_string()).unwrap().unwrap();
     let moves = piece.get_moves(&custom_board);
-    println!("e1 moves --> {:?}", moves.iter().map(|pair| index_pair_to_name(pair.0, pair.1).unwrap()).collect::<Vec<String>>());
+    println!("e1 moves --> {:?}", moves.iter().map(|m| index_pair_to_name(m.destination.0, m.destination.1).unwrap()).collect::<Vec<String>>());
 
     let piece = custom_board.get_square_by_name("f3".to_string()).unwrap().unwrap();
     let moves = piece.get_moves(&custom_board);
-    println!("f3 moves --> {:?}", moves.iter().map(|pair| index_pair_to_name(pair.0, pair.1).unwrap()).collect::<Vec<String>>());
+    println!("f3 moves --> {:?}", moves.iter().map(|m| index_pair_to_name(m.destination.0, m.destination.1).unwrap()).collect::<Vec<String>>());
 
     let piece = custom_board.get_square_by_name("e4".to_string()).unwrap().unwrap();
     let moves = piece.get_moves(&custom_board);
-    println!("e4 moves --> {:?}", moves.iter().map(|pair| index_pair_to_name(pair.0, pair.1).unwrap()).collect::<Vec<String>>());
+    println!("e4 moves --> {:?}", moves.iter().map(|m| index_pair_to_name(m.destination.0, m.destination.1).unwrap()).collect::<Vec<String>>());
 
     let piece = custom_board.get_square_by_name("e1".to_string()).unwrap().unwrap();
     let moves = piece.get_moves(&custom_board);
-    println!("e1 moves --> {:?}", moves.iter().map(|pair| index_pair_to_name(pair.0, pair.1).unwrap()).collect::<Vec<String>>());
+    println!("e1 moves --> {:?}", moves.iter().map(|m| index_pair_to_name(m.destination.0, m.destination.1).unwrap()).collect::<Vec<String>>());
+
+
+    let piece = custom_board.get_square_by_name("g7".to_string()).unwrap().unwrap();
+    let moves = piece.get_moves(&custom_board);
+    println!("g7 moves --> {:?}", moves.iter().map(|m| index_pair_to_name(m.destination.0, m.destination.1).unwrap()).collect::<Vec<String>>());
 }
