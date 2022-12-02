@@ -1,5 +1,7 @@
+use std::cell::RefCell;
 use std::collections::HashSet;
 use std::fmt::Display;
+use std::rc::Rc;
 
 use super::ChessError;
 use super::ChessMove;
@@ -11,7 +13,7 @@ use super::pieces::{ChessPiece, Side, PieceType};
 use colored::*;
 
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Clone, Debug)]
 pub struct ChessBoard {
     pub squares: [[Option<ChessPiece>; 8]; 8], // 0,0 = a1, 7,7 = h8
     pub state: BoardStateFlags
@@ -33,7 +35,7 @@ impl ChessBoard {
     pub fn new() -> Self {
         // An Image showing a nice view of the Initial Setup: https://www.regencychess.co.uk/images/how-to-set-up-a-chessboard/how-to-set-up-a-chessboard-7.jpg
         // start with an empty board
-        let mut squares = [[None; 8]; 8];
+        let mut squares: [[Option<ChessPiece>; 8]; 8] = Default::default();
 
         // setup white main pieces
         squares[0][0] = Some(ChessPiece { position: (0,0), side: Side::White, piece_type: PieceType::Rook});
@@ -77,20 +79,24 @@ impl ChessBoard {
         Ok(self.get_square_by_index(column_index, row_index))
     }
 
-    pub fn perform_move(self: &mut Self, piece: &mut ChessPiece, chess_move: &ChessMove) -> Result<(), ()> {
-        let current_position = piece.position;
+    pub fn perform_move(self: &mut Self, chess_move: &ChessMove) -> Result<(), ()> {
+        let current_position = chess_move.from_square;
+        let mut piece = self.get_square_by_index(current_position.0, current_position.1).unwrap();
         let dest_col = chess_move.destination.0;
         let dest_row = chess_move.destination.1;
 
         // move piece from current position to destination
         piece.position = chess_move.destination;
         self.squares[current_position.0][current_position.1] = None;
-        self.squares[dest_col][dest_row] = Some(*piece);
+        self.squares[dest_col][dest_row] = Some(piece);
 
         // handle flags depending on if special move is performed
         match chess_move.move_type {
             MoveType::EnPassant => {
-                let captured = chess_move.captures.unwrap();
+                let captured = match piece.side {
+                    Side::White => self.get_square_by_index(dest_col, dest_row - 1).unwrap(),
+                    Side::Black => self.get_square_by_index(dest_col, dest_row + 1).unwrap(),
+                };
                 self.squares[captured.position.0][captured.position.1] = None;
             },
             MoveType::DoubleAdvance => {
@@ -107,7 +113,7 @@ impl ChessBoard {
     pub fn get_threatened(self: &Self, side: Side) -> Vec<(usize, usize)> {
         let mut threatened = Vec::new();
         // for every column and row
-        for columns in self.squares {
+        for columns in &self.squares {
             for square in columns {
                 // ignore if the square is empty or the piece is not the side of interest
                 if square.is_none() || square.unwrap().side != side {
@@ -136,7 +142,18 @@ impl ChessBoard {
     }
 
     pub fn is_checked(self: &Self, side: Side) -> bool {
-        let king_piece = self.squares.iter().find_map(|row| row.iter().find(|square| square.is_some() && square.unwrap().piece_type == PieceType::King && square.unwrap().side == side)).unwrap().unwrap();
+        let king_piece = self.squares.iter()
+            .find_map(|row| {
+                row.iter()
+                    .find(
+                        |square| 
+                        square.is_some() && (square.unwrap().piece_type == PieceType::King && square.unwrap().side == side)
+                    )
+                    .map(|s| s.clone()
+                )
+            })
+            .unwrap()
+            .unwrap();
         self.is_square_threatened(!side, king_piece.position)
     }
 
@@ -236,7 +253,7 @@ impl Display for ChessBoard {
         for row_indx in (0..8).rev() {
             write!(f, "{} ", format!("{}", row_indx+1).black())?;
             for col_indx in 0..8 {
-                let char = match self.squares[col_indx][row_indx] {
+                let char = match &self.squares[col_indx][row_indx] {
                     Some(piece) => {
                         match piece.side {
                             Side::White => match piece.piece_type {

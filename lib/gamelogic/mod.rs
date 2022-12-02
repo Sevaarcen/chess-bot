@@ -1,5 +1,5 @@
 use core::fmt;
-use std::error::Error;
+use std::{error::Error, rc::Rc, cell::RefCell};
 
 use self::pieces::ChessPiece;
 
@@ -37,9 +37,10 @@ pub enum MoveType {
 /// Struct to hold info about chess moves and associated data we can use for filtering and move quality ranking
 #[derive(Debug)]
 pub struct ChessMove {
+    pub from_square: (usize, usize),
     pub destination: (usize, usize),
     pub move_type: MoveType,
-    pub captures: Option<ChessPiece>,
+    pub captures: Option<(usize, usize)>,
     pub dest_threatened: bool,
     pub dest_defended: bool
 }

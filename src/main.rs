@@ -1,3 +1,5 @@
+use std::{cell::RefCell, rc::Rc};
+
 use chessbot_lib::gamelogic::{pieces::{ChessPiece, Side, PieceType}, board::ChessBoard};
 use chessbot_lib::gamelogic::index_pair_to_name;
 
@@ -11,7 +13,7 @@ fn main() {
 
     println!(">>>>>  CUSTOM BOARD SETUP <<<<<\n");
     // Slightly modified https://www.chess.com/puzzles/problem/691396
-    let mut custom_setup_squares = [[None; 8]; 8];
+    let mut custom_setup_squares: [[Option<ChessPiece>; 8]; 8] = Default::default();
     custom_setup_squares[0][0] = Some(ChessPiece { position: (0,0), side: Side::White, piece_type: PieceType::Rook});
     custom_setup_squares[0][2] = Some(ChessPiece { position: (0,2), side: Side::White, piece_type: PieceType::Pawn});
     custom_setup_squares[0][3] = Some(ChessPiece { position: (0,3), side: Side::White, piece_type: PieceType::Queen});

@@ -80,7 +80,7 @@ impl ChessPiece {
         // for all the possible moves, remove any where actually performing said move would result in the king being threatened
         unfiltered_moves.into_iter()
             .filter(|m| {
-                !move_would_cause_self_check(self, board, m)
+                !move_would_cause_self_check(board, m)
             })
             .collect()
     }
@@ -123,12 +123,13 @@ impl ChessPiece {
 }
 
 
-fn move_would_cause_self_check(piece: &ChessPiece, board: &ChessBoard, the_move: &ChessMove) -> bool {
-    let mut piece_copy = piece.clone();
+fn move_would_cause_self_check(board: &ChessBoard, the_move: &ChessMove) -> bool {
+    // create a copy of the current board state where we can perform the move and then check the result.
     let mut board_copy = board.clone();
+    board_copy.perform_move(the_move).unwrap();
 
-    board_copy.perform_move(&mut piece_copy, the_move).unwrap();
-
+    // check if the King is in check for the side that just moved
+    let piece = board.get_square_by_index(the_move.from_square.0, the_move.from_square.1).unwrap();
     board_copy.is_checked(piece.side)
 }
 
@@ -142,6 +143,7 @@ fn get_pawn_moves(piece: &ChessPiece, board: &ChessBoard) -> Vec<ChessMove> {
         if current_row == 1 && board.get_square_by_index(current_col, current_row + 2).is_none() {
             let destination = (current_col, current_row + 2);
             possible_moves.push(ChessMove {
+                from_square: (current_col, current_row),
                 destination,
                 move_type: MoveType::Standard,
                 captures: None,
@@ -153,6 +155,7 @@ fn get_pawn_moves(piece: &ChessPiece, board: &ChessBoard) -> Vec<ChessMove> {
         if board.get_square_by_index(current_col, current_row + 1).is_none() {
             let destination = (current_col, current_row + 1);
             possible_moves.push(ChessMove {
+                from_square: (current_col, current_row),
                 destination,
                 move_type: MoveType::Standard,
                 captures: None,
@@ -165,9 +168,10 @@ fn get_pawn_moves(piece: &ChessPiece, board: &ChessBoard) -> Vec<ChessMove> {
         if current_col >= 1 && board.get_square_by_index(current_col - 1, current_row + 1).is_some() && board.get_square_by_index(current_col - 1, current_row + 1).unwrap().side != piece.side {
             let destination = (current_col - 1, current_row + 1);
             possible_moves.push(ChessMove {
+                from_square: (current_col, current_row),
                 destination,
                 move_type: MoveType::Standard,
-                captures: board.get_square_by_index(destination.0, destination.1),
+                captures: Some(destination),
                 dest_threatened: board.is_square_threatened(!piece.side, destination),
                 dest_defended: board.is_square_threatened(piece.side, destination),
             });
@@ -176,33 +180,37 @@ fn get_pawn_moves(piece: &ChessPiece, board: &ChessBoard) -> Vec<ChessMove> {
         if current_col >= 1 && board.get_square_by_index(current_col + 1, current_row + 1).is_some() && board.get_square_by_index(current_col + 1, current_row + 1).unwrap().side != piece.side {
             let destination = (current_col + 1, current_row + 1);
             possible_moves.push(ChessMove {
+                from_square: (current_col, current_row),
                 destination,
                 move_type: MoveType::Standard,
-                captures: board.get_square_by_index(destination.0, destination.1),
+                captures: Some(destination),
                 dest_threatened: board.is_square_threatened(!piece.side, destination),
                 dest_defended: board.is_square_threatened(piece.side, destination),
             });
         }
         // if in position for en passtant move, add it to the list
-        // positive side capture -- not at edge of board and space is occupied by piece of opposing side
         if board.state.en_passant_column.is_some() && current_row == 5 && current_col.abs_diff(board.state.en_passant_column.unwrap()) == 1 {
             let destination = (board.state.en_passant_column.unwrap(), current_row + 1);
             possible_moves.push(ChessMove {
+                from_square: (current_col, current_row),
                 destination,
                 move_type: MoveType::EnPassant,
-                captures: board.get_square_by_index(destination.0, destination.1),
+                captures: Some((destination.0, destination.1 - 1)),
                 dest_threatened: board.is_square_threatened(!piece.side, destination),
                 dest_defended: board.is_square_threatened(piece.side, destination),
             });
         }
-    } else {
+    }
+    // Black pawn moves
+    else {
         // double move only if on starting rank and the square is not ocupied
         if current_row == 6 && board.get_square_by_index(current_col, current_row - 2).is_none() {
             let destination = (current_col, current_row - 2);
             possible_moves.push(ChessMove {
+                from_square: (current_col, current_row),
                 destination,
                 move_type: MoveType::Standard,
-                captures: board.get_square_by_index(destination.0, destination.1),
+                captures: None,
                 dest_threatened: board.is_square_threatened(!piece.side, destination),
                 dest_defended: board.is_square_threatened(piece.side, destination),
             });
@@ -211,9 +219,10 @@ fn get_pawn_moves(piece: &ChessPiece, board: &ChessBoard) -> Vec<ChessMove> {
         if board.get_square_by_index(current_col, current_row - 1).is_none() {
             let destination = (current_col, current_row - 1);
             possible_moves.push(ChessMove {
+                from_square: (current_col, current_row),
                 destination,
                 move_type: MoveType::Standard,
-                captures: board.get_square_by_index(destination.0, destination.1),
+                captures: None,
                 dest_threatened: board.is_square_threatened(!piece.side, destination),
                 dest_defended: board.is_square_threatened(piece.side, destination),
             });
@@ -223,9 +232,10 @@ fn get_pawn_moves(piece: &ChessPiece, board: &ChessBoard) -> Vec<ChessMove> {
         if current_col >= 1 && board.get_square_by_index(current_col - 1, current_row - 1).is_some() && board.get_square_by_index(current_col - 1, current_row - 1).unwrap().side != piece.side {
             let destination = (current_col - 1, current_row - 1);
             possible_moves.push(ChessMove {
+                from_square: (current_col, current_row),
                 destination,
                 move_type: MoveType::Standard,
-                captures: board.get_square_by_index(destination.0, destination.1),
+                captures: Some(destination),
                 dest_threatened: board.is_square_threatened(!piece.side, destination),
                 dest_defended: board.is_square_threatened(piece.side, destination),
             });
@@ -234,21 +244,22 @@ fn get_pawn_moves(piece: &ChessPiece, board: &ChessBoard) -> Vec<ChessMove> {
         if current_col >= 1 && board.get_square_by_index(current_col + 1, current_row - 1).is_some() && board.get_square_by_index(current_col + 1, current_row - 1).unwrap().side != piece.side {
             let destination = (current_col + 1, current_row + 1);
             possible_moves.push(ChessMove {
+                from_square: (current_col, current_row),
                 destination,
                 move_type: MoveType::Standard,
-                captures: board.get_square_by_index(destination.0, destination.1),
+                captures: Some(destination),
                 dest_threatened: board.is_square_threatened(!piece.side, destination),
                 dest_defended: board.is_square_threatened(piece.side, destination),
             });
         }
         // if in position for en passtant move, add it to the list
-        // positive side capture -- not at edge of board and space is occupied by piece of opposing side
         if board.state.en_passant_column.is_some() && current_row == 2 && current_col.abs_diff(board.state.en_passant_column.unwrap()) == 1 {
             let destination = (board.state.en_passant_column.unwrap(), current_row - 1);
             possible_moves.push(ChessMove {
+                from_square: (current_col, current_row),
                 destination,
                 move_type: MoveType::EnPassant,
-                captures: board.get_square_by_index(destination.0, destination.1),
+                captures: Some((destination.0, destination.1 + 1)),
                 dest_threatened: board.is_square_threatened(!piece.side, destination),
                 dest_defended: board.is_square_threatened(piece.side, destination),
             });
@@ -290,9 +301,10 @@ fn get_rook_moves(piece: &ChessPiece, board: &ChessBoard) -> Vec<ChessMove> {
         if board.get_square_by_index(col, current_row).is_none() {
             let destination = (col, current_row);
             possible_moves.push(ChessMove {
+                from_square: (current_col, current_row),
                 destination,
                 move_type: MoveType::Standard,
-                captures: board.get_square_by_index(destination.0, destination.1),
+                captures: None,
                 dest_threatened: board.is_square_threatened(!piece.side, destination),
                 dest_defended: board.is_square_threatened(piece.side, destination),
             });
@@ -300,9 +312,10 @@ fn get_rook_moves(piece: &ChessPiece, board: &ChessBoard) -> Vec<ChessMove> {
             if board.get_square_by_index(col, current_row).unwrap().side != piece.side {
                 let destination = (col, current_row);
                 possible_moves.push(ChessMove {
+                    from_square: (current_col, current_row),
                     destination,
                     move_type: MoveType::Standard,
-                    captures: board.get_square_by_index(destination.0, destination.1),
+                    captures: Some(destination),
                     dest_threatened: board.is_square_threatened(!piece.side, destination),
                     dest_defended: board.is_square_threatened(piece.side, destination),
                 });
@@ -317,9 +330,10 @@ fn get_rook_moves(piece: &ChessPiece, board: &ChessBoard) -> Vec<ChessMove> {
         if board.get_square_by_index(col, current_row).is_none() {
             let destination = (col, current_row);
                 possible_moves.push(ChessMove {
+                    from_square: (current_col, current_row),
                     destination,
                     move_type: MoveType::Standard,
-                    captures: board.get_square_by_index(destination.0, destination.1),
+                    captures: None,
                     dest_threatened: board.is_square_threatened(!piece.side, destination),
                     dest_defended: board.is_square_threatened(piece.side, destination),
                 });
@@ -327,9 +341,10 @@ fn get_rook_moves(piece: &ChessPiece, board: &ChessBoard) -> Vec<ChessMove> {
             if board.get_square_by_index(col, current_row).unwrap().side != piece.side {
                 let destination = (col, current_row);
                 possible_moves.push(ChessMove {
+                    from_square: (current_col, current_row),
                     destination,
                     move_type: MoveType::Standard,
-                    captures: board.get_square_by_index(destination.0, destination.1),
+                    captures: Some(destination),
                     dest_threatened: board.is_square_threatened(!piece.side, destination),
                     dest_defended: board.is_square_threatened(piece.side, destination),
                 });
@@ -344,9 +359,10 @@ fn get_rook_moves(piece: &ChessPiece, board: &ChessBoard) -> Vec<ChessMove> {
         if board.get_square_by_index(current_col, row).is_none() {
             let destination = (current_col, row);
             possible_moves.push(ChessMove {
+                from_square: (current_col, current_row),
                 destination,
                 move_type: MoveType::Standard,
-                captures: board.get_square_by_index(destination.0, destination.1),
+                captures: None,
                 dest_threatened: board.is_square_threatened(!piece.side, destination),
                 dest_defended: board.is_square_threatened(piece.side, destination),
             });
@@ -354,9 +370,10 @@ fn get_rook_moves(piece: &ChessPiece, board: &ChessBoard) -> Vec<ChessMove> {
             if board.get_square_by_index(current_col, row).unwrap().side != piece.side {
                 let destination = (current_col, row);
                 possible_moves.push(ChessMove {
+                    from_square: (current_col, current_row),
                     destination,
                     move_type: MoveType::Standard,
-                    captures: board.get_square_by_index(destination.0, destination.1),
+                    captures: Some(destination),
                     dest_threatened: board.is_square_threatened(!piece.side, destination),
                     dest_defended: board.is_square_threatened(piece.side, destination),
                 });
@@ -371,9 +388,10 @@ fn get_rook_moves(piece: &ChessPiece, board: &ChessBoard) -> Vec<ChessMove> {
         if board.get_square_by_index(current_col, row).is_none() {
             let destination = (current_col, row);
             possible_moves.push(ChessMove {
+                from_square: (current_col, current_row),
                 destination,
                 move_type: MoveType::Standard,
-                captures: board.get_square_by_index(destination.0, destination.1),
+                captures: None,
                 dest_threatened: board.is_square_threatened(!piece.side, destination),
                 dest_defended: board.is_square_threatened(piece.side, destination),
             });
@@ -381,9 +399,10 @@ fn get_rook_moves(piece: &ChessPiece, board: &ChessBoard) -> Vec<ChessMove> {
             if board.get_square_by_index(current_col, row).unwrap().side != piece.side {
                 let destination = (current_col, row);
                 possible_moves.push(ChessMove {
+                    from_square: (current_col, current_row),
                     destination,
                     move_type: MoveType::Standard,
-                    captures: board.get_square_by_index(destination.0, destination.1),
+                    captures: Some(destination),
                     dest_threatened: board.is_square_threatened(!piece.side, destination),
                     dest_defended: board.is_square_threatened(piece.side, destination),
                 });
@@ -452,10 +471,12 @@ fn get_knight_moves(piece: &ChessPiece, board: &ChessBoard) -> Vec<ChessMove> {
         // 2 left, 1 up
         if current_row < 7 && (board.get_square_by_index(current_col - 2, current_row + 1).is_none() || board.get_square_by_index(current_col - 2, current_row + 1).unwrap().side != piece.side) {
             let destination = (current_col - 2, current_row + 1);
+            let dest_capture = board.get_square_by_index(destination.0, destination.1).map(|p| p.position);
             possible_moves.push(ChessMove {
+                from_square: (current_col, current_row),
                 destination,
                 move_type: MoveType::Standard,
-                captures: board.get_square_by_index(destination.0, destination.1),
+                captures: dest_capture,
                 dest_threatened: board.is_square_threatened(!piece.side, destination),
                 dest_defended: board.is_square_threatened(piece.side, destination),
             });
@@ -463,10 +484,12 @@ fn get_knight_moves(piece: &ChessPiece, board: &ChessBoard) -> Vec<ChessMove> {
         // 2 left, 1 down
         if current_row > 0 && (board.get_square_by_index(current_col - 2, current_row - 1).is_none() || board.get_square_by_index(current_col - 2, current_row - 1).unwrap().side != piece.side) {
             let destination = (current_col - 2, current_row - 1);
+            let dest_capture = board.get_square_by_index(destination.0, destination.1).map(|p| p.position);
             possible_moves.push(ChessMove {
+                from_square: (current_col, current_row),
                 destination,
                 move_type: MoveType::Standard,
-                captures: board.get_square_by_index(destination.0, destination.1),
+                captures: dest_capture,
                 dest_threatened: board.is_square_threatened(!piece.side, destination),
                 dest_defended: board.is_square_threatened(piece.side, destination),
             });
@@ -477,10 +500,12 @@ fn get_knight_moves(piece: &ChessPiece, board: &ChessBoard) -> Vec<ChessMove> {
         // 2 right, 1 up
         if current_row < 7 && (board.get_square_by_index(current_col + 2, current_row + 1).is_none() || board.get_square_by_index(current_col + 2, current_row + 1).unwrap().side != piece.side) {
             let destination = (current_col + 2, current_row + 1);
+            let dest_capture = board.get_square_by_index(destination.0, destination.1).map(|p| p.position);
             possible_moves.push(ChessMove {
+                from_square: (current_col, current_row),
                 destination,
                 move_type: MoveType::Standard,
-                captures: board.get_square_by_index(destination.0, destination.1),
+                captures: dest_capture,
                 dest_threatened: board.is_square_threatened(!piece.side, destination),
                 dest_defended: board.is_square_threatened(piece.side, destination),
             });
@@ -488,10 +513,12 @@ fn get_knight_moves(piece: &ChessPiece, board: &ChessBoard) -> Vec<ChessMove> {
         // 2 left, 1 down
         if current_row > 0 && (board.get_square_by_index(current_col + 2, current_row - 1).is_none() || board.get_square_by_index(current_col + 2, current_row - 1).unwrap().side != piece.side) {
             let destination = (current_col + 2, current_row - 1);
+            let dest_capture = board.get_square_by_index(destination.0, destination.1).map(|p| p.position);
             possible_moves.push(ChessMove {
+                from_square: (current_col, current_row),
                 destination,
                 move_type: MoveType::Standard,
-                captures: board.get_square_by_index(destination.0, destination.1),
+                captures: dest_capture,
                 dest_threatened: board.is_square_threatened(!piece.side, destination),
                 dest_defended: board.is_square_threatened(piece.side, destination),
             });
@@ -502,10 +529,12 @@ fn get_knight_moves(piece: &ChessPiece, board: &ChessBoard) -> Vec<ChessMove> {
         // 2 up, 1 left
         if current_col > 0 && (board.get_square_by_index(current_col - 1, current_row + 2).is_none() || board.get_square_by_index(current_col - 1, current_row + 2).unwrap().side != piece.side) {
             let destination = (current_col - 1, current_row + 2);
+            let dest_capture = board.get_square_by_index(destination.0, destination.1).map(|p| p.position);
             possible_moves.push(ChessMove {
+                from_square: (current_col, current_row),
                 destination,
                 move_type: MoveType::Standard,
-                captures: board.get_square_by_index(destination.0, destination.1),
+                captures: dest_capture,
                 dest_threatened: board.is_square_threatened(!piece.side, destination),
                 dest_defended: board.is_square_threatened(piece.side, destination),
             });
@@ -513,10 +542,12 @@ fn get_knight_moves(piece: &ChessPiece, board: &ChessBoard) -> Vec<ChessMove> {
         // 2 up, 1 right
         if current_col < 7 && (board.get_square_by_index(current_col + 1, current_row + 2).is_none() || board.get_square_by_index(current_col + 1, current_row + 2).unwrap().side != piece.side) {
             let destination = (current_col + 1, current_row + 2);
+            let dest_capture = board.get_square_by_index(destination.0, destination.1).map(|p| p.position);
             possible_moves.push(ChessMove {
+                from_square: (current_col, current_row),
                 destination,
                 move_type: MoveType::Standard,
-                captures: board.get_square_by_index(destination.0, destination.1),
+                captures: dest_capture,
                 dest_threatened: board.is_square_threatened(!piece.side, destination),
                 dest_defended: board.is_square_threatened(piece.side, destination),
             });
@@ -527,10 +558,12 @@ fn get_knight_moves(piece: &ChessPiece, board: &ChessBoard) -> Vec<ChessMove> {
         // 2 down, 1 left
         if current_col > 0 && (board.get_square_by_index(current_col - 1, current_row - 2).is_none() || board.get_square_by_index(current_col - 1, current_row - 2).unwrap().side != piece.side) {
             let destination = (current_col - 1, current_row - 2);
+            let dest_capture = board.get_square_by_index(destination.0, destination.1).map(|p| p.position);
             possible_moves.push(ChessMove {
+                from_square: (current_col, current_row),
                 destination,
                 move_type: MoveType::Standard,
-                captures: board.get_square_by_index(destination.0, destination.1),
+                captures: dest_capture,
                 dest_threatened: board.is_square_threatened(!piece.side, destination),
                 dest_defended: board.is_square_threatened(piece.side, destination),
             });
@@ -538,10 +571,12 @@ fn get_knight_moves(piece: &ChessPiece, board: &ChessBoard) -> Vec<ChessMove> {
         // 2 down, 1 left
         if current_col < 7 && (board.get_square_by_index(current_col + 1, current_row - 2).is_none() || board.get_square_by_index(current_col + 1, current_row - 2).unwrap().side != piece.side) {
             let destination = (current_col + 1, current_row - 2);
+            let dest_capture = board.get_square_by_index(destination.0, destination.1).map(|p| p.position);
             possible_moves.push(ChessMove {
+                from_square: (current_col, current_row),
                 destination,
                 move_type: MoveType::Standard,
-                captures: board.get_square_by_index(destination.0, destination.1),
+                captures: dest_capture,
                 dest_threatened: board.is_square_threatened(!piece.side, destination),
                 dest_defended: board.is_square_threatened(piece.side, destination),
             });
@@ -618,9 +653,10 @@ fn get_bishop_moves(piece: &ChessPiece, board: &ChessBoard) -> Vec<ChessMove> {
         if board.get_square_by_index(new_col, new_row).is_none() {
             let destination = (new_col, new_row);
             possible_moves.push(ChessMove {
+                from_square: (current_col, current_row),
                 destination,
                 move_type: MoveType::Standard,
-                captures: board.get_square_by_index(destination.0, destination.1),
+                captures: None,
                 dest_threatened: board.is_square_threatened(!piece.side, destination),
                 dest_defended: board.is_square_threatened(piece.side, destination),
             });
@@ -628,9 +664,10 @@ fn get_bishop_moves(piece: &ChessPiece, board: &ChessBoard) -> Vec<ChessMove> {
             if board.get_square_by_index(new_col, new_row).unwrap().side != piece.side {
                 let destination = (new_col, new_row);
                 possible_moves.push(ChessMove {
+                    from_square: (current_col, current_row),
                     destination,
                     move_type: MoveType::Standard,
-                    captures: board.get_square_by_index(destination.0, destination.1),
+                    captures: Some(destination),
                     dest_threatened: board.is_square_threatened(!piece.side, destination),
                     dest_defended: board.is_square_threatened(piece.side, destination),
                 });
@@ -651,9 +688,10 @@ fn get_bishop_moves(piece: &ChessPiece, board: &ChessBoard) -> Vec<ChessMove> {
         if board.get_square_by_index(new_col, new_row).is_none() {
             let destination = (new_col, new_row);
             possible_moves.push(ChessMove {
+                from_square: (current_col, current_row),
                 destination,
                 move_type: MoveType::Standard,
-                captures: board.get_square_by_index(destination.0, destination.1),
+                captures: None,
                 dest_threatened: board.is_square_threatened(!piece.side, destination),
                 dest_defended: board.is_square_threatened(piece.side, destination),
             });
@@ -661,9 +699,10 @@ fn get_bishop_moves(piece: &ChessPiece, board: &ChessBoard) -> Vec<ChessMove> {
             if board.get_square_by_index(new_col, new_row).unwrap().side != piece.side {
                 let destination = (new_col, new_row);
                 possible_moves.push(ChessMove {
+                    from_square: (current_col, current_row),
                     destination,
                     move_type: MoveType::Standard,
-                    captures: board.get_square_by_index(destination.0, destination.1),
+                    captures: Some(destination),
                     dest_threatened: board.is_square_threatened(!piece.side, destination),
                     dest_defended: board.is_square_threatened(piece.side, destination),
                 });
@@ -684,9 +723,10 @@ fn get_bishop_moves(piece: &ChessPiece, board: &ChessBoard) -> Vec<ChessMove> {
         if board.get_square_by_index(new_col, new_row).is_none() {
             let destination = (new_col, new_row);
             possible_moves.push(ChessMove {
+                from_square: (current_col, current_row),
                 destination,
                 move_type: MoveType::Standard,
-                captures: board.get_square_by_index(destination.0, destination.1),
+                captures: None,
                 dest_threatened: board.is_square_threatened(!piece.side, destination),
                 dest_defended: board.is_square_threatened(piece.side, destination),
             });
@@ -694,9 +734,10 @@ fn get_bishop_moves(piece: &ChessPiece, board: &ChessBoard) -> Vec<ChessMove> {
             if board.get_square_by_index(new_col, new_row).unwrap().side != piece.side {
                 let destination = (new_col, new_row);
             possible_moves.push(ChessMove {
+                from_square: (current_col, current_row),
                 destination,
                 move_type: MoveType::Standard,
-                captures: board.get_square_by_index(destination.0, destination.1),
+                captures: Some(destination),
                 dest_threatened: board.is_square_threatened(!piece.side, destination),
                 dest_defended: board.is_square_threatened(piece.side, destination),
             });
@@ -717,9 +758,10 @@ fn get_bishop_moves(piece: &ChessPiece, board: &ChessBoard) -> Vec<ChessMove> {
         if board.get_square_by_index(new_col, new_row).is_none() {
             let destination = (new_col, new_row);
             possible_moves.push(ChessMove {
+                from_square: (current_col, current_row),
                 destination,
                 move_type: MoveType::Standard,
-                captures: board.get_square_by_index(destination.0, destination.1),
+                captures: None,
                 dest_threatened: board.is_square_threatened(!piece.side, destination),
                 dest_defended: board.is_square_threatened(piece.side, destination),
             });
@@ -727,9 +769,10 @@ fn get_bishop_moves(piece: &ChessPiece, board: &ChessBoard) -> Vec<ChessMove> {
             if board.get_square_by_index(new_col, new_row).unwrap().side != piece.side {
                 let destination = (new_col, new_row);
                 possible_moves.push(ChessMove {
+                    from_square: (current_col, current_row),
                     destination,
                     move_type: MoveType::Standard,
-                    captures: board.get_square_by_index(destination.0, destination.1),
+                    captures: Some(destination),
                     dest_threatened: board.is_square_threatened(!piece.side, destination),
                     dest_defended: board.is_square_threatened(piece.side, destination),
                 });
@@ -742,7 +785,6 @@ fn get_bishop_moves(piece: &ChessPiece, board: &ChessBoard) -> Vec<ChessMove> {
             break;
         }
     }
-
     possible_moves
 }
 
@@ -860,18 +902,21 @@ fn get_king_moves(piece: &ChessPiece, board: &ChessBoard) -> Vec<ChessMove> {
             if board.get_square_by_index(new_col, new_row).is_none() {
                 let destination = (new_col, new_row);
                 possible_moves.push(ChessMove {
+                    from_square: (current_col, current_row),
                     destination,
                     move_type: MoveType::Standard,
-                    captures: board.get_square_by_index(destination.0, destination.1),
+                    captures: None,
                     dest_threatened: board.is_square_threatened(!piece.side, destination),
                     dest_defended: board.is_square_threatened(piece.side, destination),
                 });
             } else if board.get_square_by_index(new_col, new_row).unwrap().side != piece.side {
                 let destination = (new_col, new_row);
+                let dest_capture = board.get_square_by_index(destination.0, destination.1).map(|p| p.position);
                 possible_moves.push(ChessMove {
+                    from_square: (current_col, current_row),
                     destination,
                     move_type: MoveType::Standard,
-                    captures: board.get_square_by_index(destination.0, destination.1),
+                    captures: dest_capture,
                     dest_threatened: board.is_square_threatened(!piece.side, destination),
                     dest_defended: board.is_square_threatened(piece.side, destination),
                 });

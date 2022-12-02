@@ -21,7 +21,7 @@ Setup a custom board state (all flags set to newgame) to evaluate move logic.
 */
 lazy_static! {
     static ref CUSTOM_BOARD: Arc<RwLock<ChessBoard>> = {
-        let mut custom_setup_squares = [[None; 8]; 8];
+        let mut custom_setup_squares: [[Option<ChessPiece>; 8]; 8] = Default::default();
         custom_setup_squares[0][0] = Some(ChessPiece { position: (0,0), side: Side::White, piece_type: PieceType::Rook});
         custom_setup_squares[0][2] = Some(ChessPiece { position: (0,2), side: Side::White, piece_type: PieceType::Pawn});
         custom_setup_squares[0][3] = Some(ChessPiece { position: (0,3), side: Side::White, piece_type: PieceType::Queen});
@@ -87,39 +87,40 @@ fn en_passant_capture() {
     let black_pawn_opt = board.get_square_by_name("g7".to_string()).unwrap();
     assert!(black_pawn_opt.is_some());
 
-    let mut black_pawn = black_pawn_opt.unwrap();
     let black_move = ChessMove {
+        from_square: name_to_index_pair("g7".to_string()).unwrap(),
         destination: (6,4),
-        captures: None,
         move_type: MoveType::Standard,
+        captures: None,
         dest_defended: true,
         dest_threatened: true
     };
 
     // move black pawn double forward opening up to en passant move
-    assert!(board.perform_move(&mut black_pawn, &black_move).is_ok());
+    assert!(board.perform_move(&black_move).is_ok());
 
     // assert pawn actually moved
     assert!(board.get_square_by_name("g7".to_string()).unwrap().is_none());
 
-    // assert white pawn can perform en passant move
-    let white_pawn_opt = board.get_square_by_name("f5".to_string()).unwrap();
-    assert!(white_pawn_opt.is_some());
+    // assert white pawn exists
+    assert!(board.get_square_by_name("f5".to_string()).unwrap().is_some());
 
-    let mut white_pawn = white_pawn_opt.unwrap();
+    // assert white pawn can perform en passant move
     let white_move = ChessMove {
+        from_square: name_to_index_pair("f5".to_string()).unwrap(),
         destination: (6,5),
         move_type: MoveType::EnPassant,
-        captures: Some(black_pawn),
+        captures: Some((6, 4)),
         dest_defended: false,
         dest_threatened: true
     };
-    assert!(board.perform_move(&mut white_pawn, &white_move).is_ok());
+    assert!(board.perform_move(&white_move).is_ok());
 
+    // white pawn has moved
     assert!(board.get_square_by_name("f5".to_string()).unwrap().is_none());
-
-    // assert black pawn is now captured and white pawn moved to correct square
+    // assert black pawn is now captured
     assert!(board.get_square_by_name("g5".to_string()).unwrap().is_none());
+    // white pawn has moved diagonally to correct square after capture
     assert!(board.get_square_by_name("g6".to_string()).unwrap().is_some());
 }
 
@@ -132,11 +133,11 @@ fn white_pawn_knight_capture() {
     let white_pawn_opt = board.get_square_by_name("g2".to_string()).unwrap();
     assert!(white_pawn_opt.is_some());
     
-    let mut white_pawn = white_pawn_opt.unwrap();
+    let white_pawn = white_pawn_opt.unwrap();
     let white_move_res = white_pawn.get_specific_move(&board, name_to_index_pair("f3".to_string()).unwrap());
     assert!(white_move_res.is_ok());
 
-    let moved = board.perform_move(&mut white_pawn, &white_move_res.unwrap());
+    let moved = board.perform_move(&white_move_res.unwrap());
     assert!(moved.is_ok());
 
     assert!(board.get_square_by_name("g2".to_string()).unwrap().is_none());
