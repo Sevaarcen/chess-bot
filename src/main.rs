@@ -1,12 +1,9 @@
-use std::{cell::RefCell, rc::Rc};
-
-use chessbot_lib::gamelogic::{pieces::{ChessPiece, Side, PieceType}, board::ChessBoard};
+use chessbot_lib::{gamelogic::{pieces::{ChessPiece, Side, PieceType}, board::ChessBoard}, stratagems::{random_aggro::RandomAggro, Stratagem}, runners::{local_game::LocalGame, Connector}};
 use chessbot_lib::gamelogic::index_pair_to_name;
 
 extern crate chessbot_lib;
 
 fn main() {
-
     println!(">>>>>  DEFAULT BOARD SETUP <<<<<\n");
     let default_board = chessbot_lib::gamelogic::board::ChessBoard::new();
     println!("{}", default_board);
@@ -71,4 +68,18 @@ fn main() {
     let piece = custom_board.get_square_by_name("g7".to_string()).unwrap().unwrap();
     let moves = piece.get_moves(&custom_board);
     println!("g7 moves --> {:?}", moves.iter().map(|m| index_pair_to_name(m.destination.0, m.destination.1).unwrap()).collect::<Vec<String>>());
+
+    println!("\n\n\n");
+
+    let strategem = RandomAggro::initialize(Side::Black);
+    let mut local_game = LocalGame::initialize(Box::new(strategem)).unwrap();
+
+    while local_game.check_victory().is_none() {
+        local_game.refresh_state().expect("Failed to refresh game state");
+        local_game.execute_bot_move().expect("Failed to perform bot move");
+    }
+    println!("{}", "=".to_string().repeat(80));
+    println!("{:?}", local_game.check_victory().unwrap());
+    println!("{}", "=".to_string().repeat(80));
+
 }

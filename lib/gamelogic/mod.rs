@@ -1,7 +1,5 @@
 use core::fmt;
-use std::{error::Error, rc::Rc, cell::RefCell};
-
-use self::pieces::ChessPiece;
+use std::error::Error;
 
 pub mod board;
 pub mod pieces;
@@ -55,6 +53,7 @@ impl PartialEq for ChessMove {
 impl Eq for ChessMove {}
 
 
+#[derive(Debug)]
 pub enum GameEnd {
     WhiteVictory,
     BlackVictory,

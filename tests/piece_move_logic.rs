@@ -152,4 +152,6 @@ fn white_pawn_knight_capture() {
 
 // TODO more tests
 // move for all pieces
+// move and captures at very edge of board boundaries
 // castling
+// promotion

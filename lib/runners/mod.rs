@@ -1,7 +1,7 @@
 use core::fmt;
 use std::error::Error;
 
-use crate::{gamelogic::{board::ChessBoard, ChessMove}, stratagems::Stratagem};
+use crate::{gamelogic::GameEnd, stratagems::Stratagem};
 
 pub mod local_game;
 
@@ -31,6 +31,7 @@ pub trait Connector {
     fn initialize(strategem: Box<dyn Stratagem>) -> Result<Self, ConnectorError>
         where Self: Sized;
     fn refresh_state(self: &mut Self) -> Result<(), ConnectorError>;
-    fn input_move(self: &Self, input: ChessMove) -> Result<(), ConnectorError>;
+    fn execute_bot_move(self: &mut Self) -> Result<(), ConnectorError>;
+    fn check_victory(self: &Self) -> Option<GameEnd>;
 }
 

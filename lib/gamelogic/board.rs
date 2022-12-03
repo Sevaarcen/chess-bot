@@ -1,7 +1,5 @@
-use std::cell::RefCell;
 use std::collections::HashSet;
 use std::fmt::Display;
-use std::rc::Rc;
 
 use super::ChessError;
 use super::ChessMove;
@@ -90,7 +88,7 @@ impl ChessBoard {
         self.squares[current_position.0][current_position.1] = None;
         self.squares[dest_col][dest_row] = Some(piece);
 
-        // handle flags depending on if special move is performed
+        // handle pawn special moves
         match chess_move.move_type {
             MoveType::EnPassant => {
                 let captured = match piece.side {
@@ -98,10 +96,15 @@ impl ChessBoard {
                     Side::Black => self.get_square_by_index(dest_col, dest_row + 1).unwrap(),
                 };
                 self.squares[captured.position.0][captured.position.1] = None;
+                self.state.en_passant_column = None;
             },
             MoveType::DoubleAdvance => {
                 self.state.en_passant_column = Some(dest_col);
-            }
+            },
+            MoveType::Promotion => {
+                piece.piece_type = PieceType::Queen; // there's no reason why we would want a different piece type
+                self.state.en_passant_column = None;
+            },
             _ => {
                 self.state.en_passant_column = None;
             }
@@ -272,6 +275,22 @@ impl Display for ChessBoard {
                                 PieceType::Queen => "♛ ",
                                 PieceType::King => "♚ ",
                             }.blue(),
+                            // Side::White => match piece.piece_type {
+                            //     PieceType::Pawn => "wP",
+                            //     PieceType::Rook => "wR",
+                            //     PieceType::Knight => "wN",
+                            //     PieceType::Bishop => "wB",
+                            //     PieceType::Queen => "wQ",
+                            //     PieceType::King => "wK",
+                            // }.white(),
+                            // Side::Black => match piece.piece_type {
+                            //     PieceType::Pawn => "bP",
+                            //     PieceType::Rook => "bR",
+                            //     PieceType::Knight => "bN",
+                            //     PieceType::Bishop => "bB",
+                            //     PieceType::Queen => "bQ",
+                            //     PieceType::King => "bK",
+                            // }.blue(),
                         }
                     },
                     None => "╶╴".truecolor(128, 128, 128)
@@ -287,6 +306,7 @@ impl Display for ChessBoard {
                 } else {
                     write!(f, "{}", char)?;
                 }
+                // write!(f, "{}", char)?; // write w/ no background
             }
             write!(f, "\n")?;
         };

@@ -139,8 +139,8 @@ fn get_pawn_moves(piece: &ChessPiece, board: &ChessBoard) -> Vec<ChessMove> {
     let current_col = piece.position.0;
     let current_row = piece.position.1;
     if piece.side == Side::White {
-        // double move only if on starting rank and the square is not ocupied
-        if current_row == 1 && board.get_square_by_index(current_col, current_row + 2).is_none() {
+        // double move only if on starting rank and both the squares ahead are not ocupied
+        if current_row == 1 && board.get_square_by_index(current_col, current_row + 1).is_none() && board.get_square_by_index(current_col, current_row + 2).is_none() {
             let destination = (current_col, current_row + 2);
             possible_moves.push(ChessMove {
                 from_square: (current_col, current_row),
@@ -154,10 +154,14 @@ fn get_pawn_moves(piece: &ChessPiece, board: &ChessBoard) -> Vec<ChessMove> {
         // otherwise move forward as long as space is not occupied
         if board.get_square_by_index(current_col, current_row + 1).is_none() {
             let destination = (current_col, current_row + 1);
+            let move_type = match destination.1 == 7 {
+                true => MoveType::Promotion,
+                false => MoveType::Standard
+            };
             possible_moves.push(ChessMove {
                 from_square: (current_col, current_row),
                 destination,
-                move_type: MoveType::Standard,
+                move_type,
                 captures: None,
                 dest_threatened: board.is_square_threatened(!piece.side, destination),
                 dest_defended: board.is_square_threatened(piece.side, destination),
@@ -177,7 +181,7 @@ fn get_pawn_moves(piece: &ChessPiece, board: &ChessBoard) -> Vec<ChessMove> {
             });
         }
         // positive side capture -- not at edge of board and space is occupied by piece of opposing side
-        if current_col >= 1 && board.get_square_by_index(current_col + 1, current_row + 1).is_some() && board.get_square_by_index(current_col + 1, current_row + 1).unwrap().side != piece.side {
+        if current_col <= 6 && board.get_square_by_index(current_col + 1, current_row + 1).is_some() && board.get_square_by_index(current_col + 1, current_row + 1).unwrap().side != piece.side {
             let destination = (current_col + 1, current_row + 1);
             possible_moves.push(ChessMove {
                 from_square: (current_col, current_row),
@@ -189,7 +193,7 @@ fn get_pawn_moves(piece: &ChessPiece, board: &ChessBoard) -> Vec<ChessMove> {
             });
         }
         // if in position for en passtant move, add it to the list
-        if board.state.en_passant_column.is_some() && current_row == 5 && current_col.abs_diff(board.state.en_passant_column.unwrap()) == 1 {
+        if board.state.en_passant_column.is_some() && current_row == 4 && current_col.abs_diff(board.state.en_passant_column.unwrap()) == 1 {
             let destination = (board.state.en_passant_column.unwrap(), current_row + 1);
             possible_moves.push(ChessMove {
                 from_square: (current_col, current_row),
@@ -203,8 +207,8 @@ fn get_pawn_moves(piece: &ChessPiece, board: &ChessBoard) -> Vec<ChessMove> {
     }
     // Black pawn moves
     else {
-        // double move only if on starting rank and the square is not ocupied
-        if current_row == 6 && board.get_square_by_index(current_col, current_row - 2).is_none() {
+        // double move only if on starting rank and both the squares ahead are not ocupied
+        if current_row == 6 && board.get_square_by_index(current_col, current_row - 1).is_none() && board.get_square_by_index(current_col, current_row - 2).is_none() {
             let destination = (current_col, current_row - 2);
             possible_moves.push(ChessMove {
                 from_square: (current_col, current_row),
@@ -218,10 +222,14 @@ fn get_pawn_moves(piece: &ChessPiece, board: &ChessBoard) -> Vec<ChessMove> {
         // otherwise move forward as long as space is not occupied
         if board.get_square_by_index(current_col, current_row - 1).is_none() {
             let destination = (current_col, current_row - 1);
+            let move_type = match destination.1 == 0 {
+                true => MoveType::Promotion,
+                false => MoveType::Standard
+            };
             possible_moves.push(ChessMove {
                 from_square: (current_col, current_row),
                 destination,
-                move_type: MoveType::Standard,
+                move_type,
                 captures: None,
                 dest_threatened: board.is_square_threatened(!piece.side, destination),
                 dest_defended: board.is_square_threatened(piece.side, destination),
@@ -241,7 +249,7 @@ fn get_pawn_moves(piece: &ChessPiece, board: &ChessBoard) -> Vec<ChessMove> {
             });
         }
         // positive side capture -- not at edge of board and space is occupied by piece of opposing side
-        if current_col >= 1 && board.get_square_by_index(current_col + 1, current_row - 1).is_some() && board.get_square_by_index(current_col + 1, current_row - 1).unwrap().side != piece.side {
+        if current_col <= 6 && board.get_square_by_index(current_col + 1, current_row - 1).is_some() && board.get_square_by_index(current_col + 1, current_row - 1).unwrap().side != piece.side {
             let destination = (current_col + 1, current_row + 1);
             possible_moves.push(ChessMove {
                 from_square: (current_col, current_row),
@@ -253,7 +261,7 @@ fn get_pawn_moves(piece: &ChessPiece, board: &ChessBoard) -> Vec<ChessMove> {
             });
         }
         // if in position for en passtant move, add it to the list
-        if board.state.en_passant_column.is_some() && current_row == 2 && current_col.abs_diff(board.state.en_passant_column.unwrap()) == 1 {
+        if board.state.en_passant_column.is_some() && current_row == 3 && current_col.abs_diff(board.state.en_passant_column.unwrap()) == 1 {
             let destination = (board.state.en_passant_column.unwrap(), current_row - 1);
             possible_moves.push(ChessMove {
                 from_square: (current_col, current_row),
@@ -647,9 +655,12 @@ fn get_bishop_moves(piece: &ChessPiece, board: &ChessBoard) -> Vec<ChessMove> {
 
     // diagonal moves from current column/row up and to left
     let up_left_count = min(current_col, 7 - current_row);
-    for diag_up_left in 1..up_left_count+1 {
+    for diag_up_left in 1..=up_left_count {
         let new_col = current_col - diag_up_left;
         let new_row = current_row + diag_up_left;
+        if new_col > 7 || new_row > 7 {
+            break;
+        }
         if board.get_square_by_index(new_col, new_row).is_none() {
             let destination = (new_col, new_row);
             possible_moves.push(ChessMove {
@@ -675,16 +686,16 @@ fn get_bishop_moves(piece: &ChessPiece, board: &ChessBoard) -> Vec<ChessMove> {
             } else {
                 break;
             }
-        }
-        if new_col == 0 || new_row == 7 {
-            break;
         }
     }
     // diagonal moves from current column/row up and to right
     let up_right_count = min(7 - current_col, 7 - current_row);
-    for diag_up_right in 1..up_right_count {
+    for diag_up_right in 1..=up_right_count {
         let new_col = current_col + diag_up_right;
         let new_row = current_row + diag_up_right;
+        if new_col > 7 || new_row > 7 {
+            break;
+        }
         if board.get_square_by_index(new_col, new_row).is_none() {
             let destination = (new_col, new_row);
             possible_moves.push(ChessMove {
@@ -711,15 +722,15 @@ fn get_bishop_moves(piece: &ChessPiece, board: &ChessBoard) -> Vec<ChessMove> {
                 break;
             }
         }
-        if new_col == 7 || new_row == 7 {
-            break;
-        }
     }
     // diagonal moves from current column/row down and to left
     let down_left_count = min(current_col, current_row);
-    for diag_down_left in 1..down_left_count {
+    for diag_down_left in 1..=down_left_count {
         let new_col = current_col - diag_down_left;
         let new_row = current_row - diag_down_left;
+        if new_col > 7 || new_row > 7 {
+            break;
+        }
         if board.get_square_by_index(new_col, new_row).is_none() {
             let destination = (new_col, new_row);
             possible_moves.push(ChessMove {
@@ -746,15 +757,15 @@ fn get_bishop_moves(piece: &ChessPiece, board: &ChessBoard) -> Vec<ChessMove> {
                 break;
             }
         }
-        if new_col == 0 || new_row == 0 {
-            break;
-        }
     }
     // diagonal moves from current column/row down and to right
     let down_right_count = min(7 - current_col, current_row);
-    for diag_down_right in 1..down_right_count {
+    for diag_down_right in 1..=down_right_count {
         let new_col = current_col + diag_down_right;
         let new_row = current_row - diag_down_right;
+        if new_col > 7 || new_row > 7 {
+            break;
+        }
         if board.get_square_by_index(new_col, new_row).is_none() {
             let destination = (new_col, new_row);
             possible_moves.push(ChessMove {
@@ -781,9 +792,6 @@ fn get_bishop_moves(piece: &ChessPiece, board: &ChessBoard) -> Vec<ChessMove> {
                 break;
             }
         }
-        if new_col == 7 || new_row == 0 {
-            break;
-        }
     }
     possible_moves
 }
@@ -796,61 +804,53 @@ fn get_bishop_threats(piece: &ChessPiece, board: &ChessBoard) -> Vec<(usize, usi
 
     // diagonal moves from current column/row up and to left
     let up_left_count = min(current_col, 7 - current_row);
-    for diag_up_left in 1..up_left_count+1 {
+    for diag_up_left in 1..=up_left_count {
         let new_col = current_col - diag_up_left;
         let new_row = current_row + diag_up_left;
-        if board.get_square_by_index(new_col, new_row).is_none() {
-            threatened_squares.push((new_col, new_row));
-        } else {
-            threatened_squares.push((new_col, new_row));
+        if new_col > 7 || new_row > 7 {
             break;
         }
-        if new_col == 0 || new_row == 7 {
+        threatened_squares.push((new_col, new_row));
+        if board.get_square_by_index(new_col, new_row).is_some() {
             break;
         }
     }
     // diagonal moves from current column/row up and to right
     let up_right_count = min(7 - current_col, 7 - current_row);
-    for diag_up_right in 1..up_right_count {
+    for diag_up_right in 1..=up_right_count {
         let new_col = current_col + diag_up_right;
         let new_row = current_row + diag_up_right;
-        if board.get_square_by_index(new_col, new_row).is_none() {
-            threatened_squares.push((new_col, new_row));
-        } else {
-            threatened_squares.push((new_col, new_row));
+        if new_col > 7 || new_row > 7 {
             break;
         }
-        if new_col == 7 || new_row == 7 {
+        threatened_squares.push((new_col, new_row));
+        if board.get_square_by_index(new_col, new_row).is_some() {
             break;
         }
     }
     // diagonal moves from current column/row down and to left
     let down_left_count = min(current_col, current_row);
-    for diag_down_left in 1..down_left_count {
+    for diag_down_left in 1..=down_left_count {
         let new_col = current_col - diag_down_left;
         let new_row = current_row - diag_down_left;
-        if board.get_square_by_index(new_col, new_row).is_none() {
-            threatened_squares.push((new_col, new_row));
-        } else {
-            threatened_squares.push((new_col, new_row));
+        if new_col > 7 || new_row > 7 {
             break;
         }
-        if new_col == 0 || new_row == 0 {
+        threatened_squares.push((new_col, new_row));
+        if board.get_square_by_index(new_col, new_row).is_some() {
             break;
         }
     }
     // diagonal moves from current column/row down and to right
     let down_right_count = min(7 - current_col, current_row);
-    for diag_down_right in 1..down_right_count {
+    for diag_down_right in 1..=down_right_count {
         let new_col = current_col + diag_down_right;
         let new_row = current_row - diag_down_right;
-        if board.get_square_by_index(new_col, new_row).is_none() {
-            threatened_squares.push((new_col, new_row));
-        } else {
-            threatened_squares.push((new_col, new_row));
+        if new_col > 7 || new_row > 7 {
             break;
         }
-        if new_col == 7 || new_row == 0 {
+        threatened_squares.push((new_col, new_row));
+        if board.get_square_by_index(new_col, new_row).is_some() {
             break;
         }
     }
