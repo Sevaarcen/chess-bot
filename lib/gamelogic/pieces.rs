@@ -250,7 +250,7 @@ fn get_pawn_moves(piece: &ChessPiece, board: &ChessBoard) -> Vec<ChessMove> {
         }
         // positive side capture -- not at edge of board and space is occupied by piece of opposing side
         if current_col <= 6 && board.get_square_by_index(current_col + 1, current_row - 1).is_some() && board.get_square_by_index(current_col + 1, current_row - 1).unwrap().side != piece.side {
-            let destination = (current_col + 1, current_row + 1);
+            let destination = (current_col + 1, current_row - 1);
             possible_moves.push(ChessMove {
                 from_square: (current_col, current_row),
                 destination,

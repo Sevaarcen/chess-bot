@@ -81,7 +81,6 @@ impl Connector for LocalGame {
         let bot_move = self.bot_opponent.get_move(&self.board);
         println!("Bot chose move: {:#?}", bot_move);
         self.board.perform_move(&bot_move).expect("Could not perform bot move");
-        println!("Board After Bot Move:\n{}\n\n", self.board);
         Ok(()) // the game is entirely managed by the internal board state, no external system needs to be interacted with
     }
 
