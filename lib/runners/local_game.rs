@@ -5,17 +5,19 @@ use super::{Connector, ConnectorError};
 use std::io::{stdin, stdout, Write};
 
 pub struct LocalGame {
-    board: ChessBoard,
+    pub board: ChessBoard,
     side: Side,
     bot_opponent: Box<dyn Stratagem>,
+    current_turn: Side
 }
 
 impl Connector for LocalGame {
-    fn initialize(strategem: Box<dyn Stratagem>) -> Result<Self, ConnectorError>  where Self: Sized {
+    fn initialize(strat: Box<dyn Stratagem>) -> Result<Self, ConnectorError>  where Self: Sized {
         Ok(LocalGame { 
             board: ChessBoard::new(),
             side: Side::White, // player will always be White because that's easier for me to handle :)
-            bot_opponent: strategem
+            bot_opponent: strat,
+            current_turn: Side::White,
         })
     }
 
@@ -28,12 +30,18 @@ impl Connector for LocalGame {
                 let mut s=String::new();
                 stdin().read_line(&mut s).unwrap();
                 s = s.trim().to_string();
+                if s == "get-state" {
+                    println!("{:#?}", self.board.state);
+                    continue 'outer;
+                }
                 let piece_res = self.board.get_square_by_name(s);
                 match piece_res {
                     Ok(square) => match square {
                         Some(p) => {
                             if p.side != self.side {
-                                println!("That piece doesn't belong to your side...");
+                                let all_piece_moves = p.get_moves(&self.board);
+                                let valid_move_names = all_piece_moves.iter().map(|m| index_pair_to_name(m.destination.0, m.destination.1).unwrap()).collect::<Vec<String>>();
+                                println!("That piece doesn't belong to your side... but it's valid moves are: {:?}", valid_move_names);
                                 continue 'outer;
                             }
                             break p
@@ -74,6 +82,7 @@ impl Connector for LocalGame {
         self.board.perform_move(&user_move).expect("Could not perform player move");
         println!("Board After Player Move:\n{}", self.board);
         // get the bot move and perform it too
+        self.current_turn = !self.current_turn;
         Ok(())
     }
 
@@ -81,10 +90,11 @@ impl Connector for LocalGame {
         let bot_move = self.bot_opponent.get_move(&self.board);
         println!("Bot chose move: {:#?}", bot_move);
         self.board.perform_move(&bot_move).expect("Could not perform bot move");
+        self.current_turn = !self.current_turn;
         Ok(()) // the game is entirely managed by the internal board state, no external system needs to be interacted with
     }
 
     fn check_victory(self: &Self) -> Option<GameEnd> {
-        self.board.is_game_over()
+        self.board.is_game_over(self.current_turn)
     }
 }

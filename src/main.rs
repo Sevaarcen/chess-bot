@@ -1,5 +1,4 @@
-use chessbot_lib::{gamelogic::{pieces::{ChessPiece, Side, PieceType}, board::ChessBoard}, stratagems::{random_aggro::RandomAggro, Stratagem}, runners::{local_game::LocalGame, Connector}};
-use chessbot_lib::gamelogic::index_pair_to_name;
+use chessbot_lib::{gamelogic::{pieces::Side, index_pair_to_name}, stratagems::{Stratagem, random_aggro::RandomAggro}, runners::{Connector, local_game::LocalGame}};
 
 extern crate chessbot_lib;
 
@@ -36,6 +35,10 @@ enum RunnerChoices {
 
 fn main() {
     let args = Args::parse();
+
+    // let strategem_choice = match args.strategem {
+    //     StrategemChoices::RandomAggro => RandomAggro
+    // };
 
     let strategem = RandomAggro::initialize(Side::Black);
     let mut local_game = LocalGame::initialize(Box::new(strategem)).unwrap();

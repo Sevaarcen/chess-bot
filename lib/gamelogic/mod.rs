@@ -55,9 +55,9 @@ impl Eq for ChessMove {}
 
 #[derive(Debug)]
 pub enum GameEnd {
-    WhiteVictory,
-    BlackVictory,
-    Draw
+    WhiteVictory(String),
+    BlackVictory(String),
+    Draw(String)
 }
 
 

@@ -28,7 +28,7 @@ impl fmt::Display for ConnectorError {
 
 
 pub trait Connector {
-    fn initialize(strategem: Box<dyn Stratagem>) -> Result<Self, ConnectorError>
+    fn initialize(strat: Box<dyn Stratagem>) -> Result<Self, ConnectorError>
         where Self: Sized;
     fn refresh_state(self: &mut Self) -> Result<(), ConnectorError>;
     fn execute_bot_move(self: &mut Self) -> Result<(), ConnectorError>;

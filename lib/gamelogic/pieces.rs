@@ -50,7 +50,7 @@ impl ChessPiece {
             PieceType::Knight => 3,
             PieceType::Bishop => 3,
             PieceType::Queen => 9,
-            PieceType::King => 0, // TODO figure out how to handle this?
+            PieceType::King => 42, // TODO maybe re-examine if there's a better way to handle this given a King can never be captured.
         }
     }
 
@@ -129,7 +129,8 @@ fn move_would_cause_self_check(board: &ChessBoard, the_move: &ChessMove) -> bool
     board_copy.perform_move(the_move).unwrap();
 
     // check if the King is in check for the side that just moved
-    let piece = board.get_square_by_index(the_move.from_square.0, the_move.from_square.1).unwrap();
+    let piece = board.get_square_by_index(the_move.from_square.0, the_move.from_square.1).expect(format!("Tried to get a piece at position {:?} but piece didn't exist", the_move.from_square).as_str());
+    
     board_copy.is_checked(piece.side)
 }
 
@@ -145,7 +146,7 @@ fn get_pawn_moves(piece: &ChessPiece, board: &ChessBoard) -> Vec<ChessMove> {
             possible_moves.push(ChessMove {
                 from_square: (current_col, current_row),
                 destination,
-                move_type: MoveType::Standard,
+                move_type: MoveType::DoubleAdvance,
                 captures: None,
                 dest_threatened: board.is_square_threatened(!piece.side, destination),
                 dest_defended: board.is_square_threatened(piece.side, destination),
@@ -171,10 +172,14 @@ fn get_pawn_moves(piece: &ChessPiece, board: &ChessBoard) -> Vec<ChessMove> {
         // negative side capture -- not at edge of board and space is occupied by piece of opposing side
         if current_col >= 1 && board.get_square_by_index(current_col - 1, current_row + 1).is_some() && board.get_square_by_index(current_col - 1, current_row + 1).unwrap().side != piece.side {
             let destination = (current_col - 1, current_row + 1);
+            let move_type = match destination.1 == 7 {
+                true => MoveType::Promotion,
+                false => MoveType::Standard
+            };
             possible_moves.push(ChessMove {
                 from_square: (current_col, current_row),
                 destination,
-                move_type: MoveType::Standard,
+                move_type,
                 captures: Some(destination),
                 dest_threatened: board.is_square_threatened(!piece.side, destination),
                 dest_defended: board.is_square_threatened(piece.side, destination),
@@ -183,10 +188,14 @@ fn get_pawn_moves(piece: &ChessPiece, board: &ChessBoard) -> Vec<ChessMove> {
         // positive side capture -- not at edge of board and space is occupied by piece of opposing side
         if current_col <= 6 && board.get_square_by_index(current_col + 1, current_row + 1).is_some() && board.get_square_by_index(current_col + 1, current_row + 1).unwrap().side != piece.side {
             let destination = (current_col + 1, current_row + 1);
+            let move_type = match destination.1 == 7 {
+                true => MoveType::Promotion,
+                false => MoveType::Standard
+            };
             possible_moves.push(ChessMove {
                 from_square: (current_col, current_row),
                 destination,
-                move_type: MoveType::Standard,
+                move_type,
                 captures: Some(destination),
                 dest_threatened: board.is_square_threatened(!piece.side, destination),
                 dest_defended: board.is_square_threatened(piece.side, destination),
@@ -213,7 +222,7 @@ fn get_pawn_moves(piece: &ChessPiece, board: &ChessBoard) -> Vec<ChessMove> {
             possible_moves.push(ChessMove {
                 from_square: (current_col, current_row),
                 destination,
-                move_type: MoveType::Standard,
+                move_type: MoveType::DoubleAdvance,
                 captures: None,
                 dest_threatened: board.is_square_threatened(!piece.side, destination),
                 dest_defended: board.is_square_threatened(piece.side, destination),
@@ -239,10 +248,14 @@ fn get_pawn_moves(piece: &ChessPiece, board: &ChessBoard) -> Vec<ChessMove> {
         // negative side capture -- not at edge of board and space is occupied by piece of opposing side
         if current_col >= 1 && board.get_square_by_index(current_col - 1, current_row - 1).is_some() && board.get_square_by_index(current_col - 1, current_row - 1).unwrap().side != piece.side {
             let destination = (current_col - 1, current_row - 1);
+            let move_type = match destination.1 == 0 {
+                true => MoveType::Promotion,
+                false => MoveType::Standard
+            };
             possible_moves.push(ChessMove {
                 from_square: (current_col, current_row),
                 destination,
-                move_type: MoveType::Standard,
+                move_type,
                 captures: Some(destination),
                 dest_threatened: board.is_square_threatened(!piece.side, destination),
                 dest_defended: board.is_square_threatened(piece.side, destination),
@@ -251,10 +264,14 @@ fn get_pawn_moves(piece: &ChessPiece, board: &ChessBoard) -> Vec<ChessMove> {
         // positive side capture -- not at edge of board and space is occupied by piece of opposing side
         if current_col <= 6 && board.get_square_by_index(current_col + 1, current_row - 1).is_some() && board.get_square_by_index(current_col + 1, current_row - 1).unwrap().side != piece.side {
             let destination = (current_col + 1, current_row - 1);
+            let move_type = match destination.1 == 0 {
+                true => MoveType::Promotion,
+                false => MoveType::Standard
+            };
             possible_moves.push(ChessMove {
                 from_square: (current_col, current_row),
                 destination,
-                move_type: MoveType::Standard,
+                move_type,
                 captures: Some(destination),
                 dest_threatened: board.is_square_threatened(!piece.side, destination),
                 dest_defended: board.is_square_threatened(piece.side, destination),
@@ -281,6 +298,9 @@ fn get_pawn_threats(piece: &ChessPiece, _board: &ChessBoard) -> Vec<(usize, usiz
     let mut threatened_squares = Vec::new();    
     let current_col = piece.position.0;
     let current_row = piece.position.1;
+    if current_row % 7 == 0 {
+        return threatened_squares;
+    }
     if piece.side == Side::White {
         if current_col > 0 {
             threatened_squares.push((current_col - 1, current_row + 1));
@@ -923,6 +943,154 @@ fn get_king_moves(piece: &ChessPiece, board: &ChessBoard) -> Vec<ChessMove> {
             }
         }
     }
+    // add castling moves
+    match piece.side {
+        Side::White => {
+            if !board.state.white_king_moved && !board.is_checked(Side::White) {
+                if !board.state.white_queen_rook_moved {
+                    // check there's no pieces in the way AND the move wouldn't be a check
+                    let mut can_castle = true;
+                    for col in (1..current_col).rev() {
+                        if board.get_square_by_index(col, current_row).is_some() {
+                            can_castle = false;
+                            break
+                        }
+                        // Calculate intermediate moves and verify if the king were to take the move it wouldn't result in a check
+                        // b/c piece controls what moves are possible, the board allows us to jump king multiple spaces for testing :)
+                        let intermediate_move = ChessMove { 
+                            from_square: (current_col, current_row),  
+                            destination: (col, current_row),
+                            move_type: MoveType::Standard,
+                            captures: None,
+                            dest_threatened: false,
+                            dest_defended: false
+                        };
+                        if move_would_cause_self_check(board, &intermediate_move) {
+                            can_castle = false;
+                            break
+                        }
+                    };
+                    if can_castle {
+                        possible_moves.push(ChessMove {
+                            from_square: (current_col, current_row),
+                            destination: (1, current_row),
+                            move_type: MoveType::Castle,
+                            captures: None,
+                            dest_threatened: false,  // move must never result in the king being threatened
+                            dest_defended: true,  // b/c rook is always at king's side afterwards, the 
+                        });
+                    }
+                }
+                if !board.state.white_king_rook_moved {
+                    // check there's no pieces in the way
+                    let mut can_castle = true;
+                    for col in current_col+1..7 {
+                        if board.get_square_by_index(col, current_row).is_some() {
+                            can_castle = false;
+                            break
+                        }
+                        // Calculate intermediate moves and verify if the king were to take the move it wouldn't result in a check
+                        // b/c piece controls what moves are possible, the board allows us to jump king multiple spaces for testing :)
+                        let intermediate_move = ChessMove { 
+                            from_square: (current_col, current_row),  
+                            destination: (col, current_row),
+                            move_type: MoveType::Standard,
+                            captures: None,
+                            dest_threatened: false,
+                            dest_defended: false
+                        };
+                        if move_would_cause_self_check(board, &intermediate_move) {
+                            can_castle = false;
+                            break
+                        }
+                    }
+                    if can_castle {
+                        possible_moves.push(ChessMove {
+                            from_square: (current_col, current_row),
+                            destination: (6, current_row),
+                            move_type: MoveType::Castle,
+                            captures: None,
+                            dest_threatened: false,  // move must never result in the king being threatened
+                            dest_defended: true,  // b/c rook is always at king's side afterwards, the 
+                        });
+                    }
+                }
+            }
+        },
+        Side::Black => {
+            if !board.state.black_king_moved && !board.is_checked(Side::Black) {
+                if !board.state.black_queen_rook_moved {
+                    // check there's no pieces in the way
+                    let mut can_castle = true;
+                    for col in (1..current_col).rev() {
+                        if board.get_square_by_index(col, current_row).is_some() {
+                            can_castle = false;
+                            break
+                        }
+                        // Calculate intermediate moves and verify if the king were to take the move it wouldn't result in a check
+                        // b/c piece controls what moves are possible, the board allows us to jump king multiple spaces for testing :)
+                        let intermediate_move = ChessMove { 
+                            from_square: (current_col, current_row),  
+                            destination: (col, current_row),
+                            move_type: MoveType::Standard,
+                            captures: None,
+                            dest_threatened: false,
+                            dest_defended: false
+                        };
+                        if move_would_cause_self_check(board, &intermediate_move) {
+                            can_castle = false;
+                            break
+                        }
+                    }
+                    if can_castle {
+                        possible_moves.push(ChessMove {
+                            from_square: (current_col, current_row),
+                            destination: (1, current_row),
+                            move_type: MoveType::Castle,
+                            captures: None,
+                            dest_threatened: false,  // move must never result in the king being threatened
+                            dest_defended: true,  // b/c rook is always at king's side afterwards, the 
+                        });
+                    }
+                }
+                if !board.state.black_king_rook_moved {
+                    // check there's no pieces in the way
+                    let mut can_castle = true;
+                    for col in current_col+1..7 {
+                        if board.get_square_by_index(col, current_row).is_some() {
+                            can_castle = false;
+                            break
+                        }
+                        // Calculate intermediate moves and verify if the king were to take the move it wouldn't result in a check
+                        // b/c piece controls what moves are possible, the board allows us to jump king multiple spaces for testing :)
+                        let intermediate_move = ChessMove { 
+                            from_square: (current_col, current_row),  
+                            destination: (col, current_row),
+                            move_type: MoveType::Standard,
+                            captures: None,
+                            dest_threatened: false,
+                            dest_defended: false
+                        };
+                        if move_would_cause_self_check(board, &intermediate_move) {
+                            can_castle = false;
+                            break
+                        }
+                    }
+                    if can_castle {
+                        possible_moves.push(ChessMove {
+                            from_square: (current_col, current_row),
+                            destination: (6, current_row),
+                            move_type: MoveType::Castle,
+                            captures: None,
+                            dest_threatened: false,  // move must never result in the king being threatened
+                            dest_defended: true,  // b/c rook is always at king's side afterwards, the 
+                        });
+                    }
+                }
+            }
+        },
+    }
+
     possible_moves
 }
 

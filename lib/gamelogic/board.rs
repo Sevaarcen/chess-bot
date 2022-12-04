@@ -79,21 +79,17 @@ impl ChessBoard {
 
     pub fn perform_move(self: &mut Self, chess_move: &ChessMove) -> Result<(), ()> {
         let current_position = chess_move.from_square;
-        let mut piece = self.get_square_by_index(current_position.0, current_position.1).unwrap();
+        let mut piece = self.get_square_by_index(current_position.0, current_position.1).expect(format!("Tried to get a piece at position {:?} but piece didn't exist", current_position).as_str());
         let dest_col = chess_move.destination.0;
         let dest_row = chess_move.destination.1;
 
-        // move piece from current position to destination
-        piece.position = chess_move.destination;
-        self.squares[current_position.0][current_position.1] = None;
-        self.squares[dest_col][dest_row] = Some(piece);
 
-        // handle pawn special moves
+        // handle special moves
         match chess_move.move_type {
             MoveType::EnPassant => {
                 let captured = match piece.side {
-                    Side::White => self.get_square_by_index(dest_col, dest_row - 1).unwrap(),
-                    Side::Black => self.get_square_by_index(dest_col, dest_row + 1).unwrap(),
+                    Side::White => self.get_square_by_index(dest_col, dest_row - 1).expect(format!("Tried to perform en passant capture at position but piece didn't exist: {:#?}", chess_move).as_str()),
+                    Side::Black => self.get_square_by_index(dest_col, dest_row + 1).expect(format!("Tried to perform en passant capture at position but piece didn't exist: {:#?}", chess_move).as_str()),
                 };
                 self.squares[captured.position.0][captured.position.1] = None;
                 self.state.en_passant_column = None;
@@ -105,10 +101,53 @@ impl ChessBoard {
                 piece.piece_type = PieceType::Queen; // there's no reason why we would want a different piece type
                 self.state.en_passant_column = None;
             },
+            MoveType::Castle => {
+                // the normal move of the king will be performed, but then we want to create a move for the rook and move it too
+                let (castle_from_col, castle_dest_col) = match dest_col == 1 {
+                    true => (0, 2),
+                    false => (7, 5)
+                };
+                let castle_move = ChessMove {
+                    from_square: (castle_from_col, dest_row),
+                    destination: (castle_dest_col, dest_row),
+                    move_type: MoveType::Standard,
+                    captures: None,
+                    dest_threatened: false,
+                    dest_defended: true,
+                };
+                self.perform_move(&castle_move)?;
+            },
             _ => {
                 self.state.en_passant_column = None;
             }
         }
+        // handle board state flags when the rook moves off their starting square, removing the possibility for castling with that rook
+        if piece.piece_type == PieceType::Rook {
+            match current_position {
+                // white queen's rook
+                (0, 0) => self.state.white_queen_rook_moved = true,
+                // white king's rook
+                (7, 0) => self.state.white_king_rook_moved = true,
+                // black queen's rook
+                (0, 7) => self.state.black_queen_rook_moved = true,
+                // black king's rook
+                (7, 7) => self.state.black_king_rook_moved = true,
+                // if it's any move other than off the starting square, no flags need to be changed
+                _ => ()
+            }
+        }
+        // if the king is what moved, unset the flags to disable castling
+        if piece.piece_type == PieceType::King {
+            match piece.side {
+                Side::White => self.state.white_king_moved = true,
+                Side::Black => self.state.black_king_moved = true,
+            }
+        }
+
+        // move piece from current position to destination
+        piece.position = chess_move.destination;
+        self.squares[current_position.0][current_position.1] = None;
+        self.squares[dest_col][dest_row] = Some(piece);
 
         Ok(())
     }
@@ -185,27 +224,33 @@ impl ChessBoard {
     /// Checks if there's a game ending state for the given board.
     /// 
     /// Reference: https://www.chess.com/article/view/how-chess-games-can-end-8-ways-explained
-    pub fn is_game_over(self: &Self) -> Option<GameEnd> {
-        let white_is_checked = self.is_checked(Side::White);
-        let white_has_no_moves = self.get_all_moves(Side::White).is_empty();
-        
-        if white_is_checked && white_has_no_moves {
-            // Black achieved Checkmate if White remains in Check and has no valid moves remaining to escape
-            return Some(GameEnd::BlackVictory);
-        } else if white_has_no_moves {
-            // If there are no valid moves which White can make, that means the game is in a draw
-            return Some(GameEnd::Draw);
+    pub fn is_game_over(self: &Self, current_turn: Side) -> Option<GameEnd> {
+        match current_turn {
+            Side::White => {
+                let white_is_checked = self.is_checked(Side::White);
+                let white_has_no_moves = self.get_all_moves(Side::White).is_empty();
+                if white_is_checked && white_has_no_moves {
+                    return Some(GameEnd::BlackVictory("Checkmate".to_string()));
+                }
+                if white_has_no_moves {
+                    // If there are no valid moves which White can make, that means the game is in a draw
+                    return Some(GameEnd::Draw("White has no valid moves".to_string()));
+                }
+            },
+            Side::Black => {
+                let black_is_checked = self.is_checked(Side::Black);
+                let black_has_no_moves = self.get_all_moves(Side::Black).is_empty();
+                if black_is_checked && black_has_no_moves {
+                    // White achieved Checkmate if Black remains in Check and has no valid moves remaining to escape
+                    return Some(GameEnd::WhiteVictory("Checkmate".to_string()));
+                } else if black_has_no_moves {
+                    // If there are no valid moves which White can make, that means the game is in a draw
+                    return Some(GameEnd::Draw("Black has no valid moves".to_string()));
+                }
+            }
         }
-        
-        let black_is_checked = self.is_checked(Side::Black);
-        let black_has_no_moves = self.get_all_moves(Side::Black).is_empty();
-        if black_is_checked && black_has_no_moves {
-            // White achieved Checkmate if Black remains in Check and has no valid moves remaining to escape
-            return Some(GameEnd::WhiteVictory);
-        } else if black_has_no_moves {
-             // If there are no valid moves which White can make, that means the game is in a draw
-            return Some(GameEnd::Draw);
-        }
+
+        // otherwise check for stalemate / insufficient materials
 
         // Check for insufficient material game ending. This occurs when one side only has a king, or both sides have their king plus a minot piece (bishop or knight)
         let white_pieces = self.get_all_pieces(Side::White);
@@ -213,33 +258,36 @@ impl ChessBoard {
 
         // Game is a draw if both sides are left with only the king
         if white_pieces.len() == 1 && black_pieces.len() == 1 {
-            return Some(GameEnd::Draw);
+            return Some(GameEnd::Draw("Stalemate".to_string()));
         }
         // Game ends in a draw if White only has their king, ...
         else if white_pieces.len() == 1 {
-            // and Black has just the King and a Knight/Bishop
+            // and a Knight/Bishop
             if black_pieces.len() == 2 && black_pieces.iter().find(|p| p.piece_type != PieceType::King).unwrap().get_material() == 3 {
-                return Some(GameEnd::Draw);
+                return Some(GameEnd::Draw("Insufficient material".to_string()));
             }
-            // or has just their King and two Knights
-            else if black_pieces.len() == 3 && black_pieces.iter().filter(|p| p.piece_type != PieceType::King).any(|p| p.piece_type != PieceType::Knight) {
-                return Some(GameEnd::Draw);
+            // or just two Knights
+            else if black_pieces.len() == 3 && black_pieces.iter().filter(|p| p.piece_type != PieceType::King).filter(|p| p.piece_type == PieceType::Knight).nth(1).is_some() {
+                return Some(GameEnd::Draw("Insufficient material".to_string()));
             }
         }
-        // Game ends in a draw if Black only has their king, ...
+        // Game ends in a draw if Black only has their King, ...
         else if black_pieces.len() == 1 {
-            // and Black has just the King and a Knight/Bishop
+            // and a Knight/Bishop
             if white_pieces.len() == 2 && white_pieces.iter().find(|p| p.piece_type != PieceType::King).unwrap().get_material() == 3 {
-                return Some(GameEnd::Draw);
+                return Some(GameEnd::Draw("Insufficient material".to_string()));
             }
-            else if white_pieces.len() == 3 && white_pieces.iter().filter(|p| p.piece_type != PieceType::King).any(|p| p.piece_type != PieceType::Knight) {
-                return Some(GameEnd::Draw);
+            // or has just 2 Knights
+            else if white_pieces.len() == 3 && white_pieces.iter().filter(|p| p.piece_type != PieceType::King).filter(|p| p.piece_type == PieceType::Knight).nth(1).is_some() {
+                return Some(GameEnd::Draw("Insufficient material".to_string()));
             }
         }
         // Game ends in a Draw if both sides have their Kings and a Knight/Bishop piece each
         else if white_pieces.len() == 2 && black_pieces.len() == 2 && white_pieces.iter().find(|p| p.piece_type != PieceType::King).unwrap().get_material() == 3 && black_pieces.iter().find(|p| p.piece_type != PieceType::King).unwrap().get_material() == 3 {
-            return Some(GameEnd::Draw);
+            return Some(GameEnd::Draw("Insufficient material".to_string()));
         }
+
+        // TODO handle Draw by Repetition
 
         // If no ending state has been identified, the game goes on
         None
@@ -275,6 +323,7 @@ impl Display for ChessBoard {
                                 PieceType::Queen => "♛ ",
                                 PieceType::King => "♚ ",
                             }.blue(),
+                            // to swap print style to non-unicode, comment out above and replace with below
                             // Side::White => match piece.piece_type {
                             //     PieceType::Pawn => "wP",
                             //     PieceType::Rook => "wR",
