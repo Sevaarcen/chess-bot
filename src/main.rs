@@ -1,4 +1,4 @@
-use chessbot_lib::{gamelogic::{pieces::Side, index_pair_to_name}, stratagems::{Stratagem, random_aggro::RandomAggro}, runners::{Connector, local_game::LocalGame, chess_com::ChessComGame}};
+use chessbot_lib::{gamelogic::{pieces::Side, index_pair_to_name}, stratagems::{Stratagem, random_aggro::RandomAggro}, runners::{Runner, local_game::LocalGame, chess_com::ChessComGame}};
 
 extern crate chessbot_lib;
 
@@ -29,20 +29,23 @@ enum StrategemChoices {
 #[derive(Debug, ValueEnum, Clone)]
 #[value(rename_all="PascalCase")]
 enum RunnerChoices {
-    LocalGame
+    LocalGame,
+    ChessCom
 }
 
 
 fn main() {
     let args = Args::parse();
 
-    // let strategem_choice = match args.strategem {
-    //     StrategemChoices::RandomAggro => RandomAggro
-    // };
-
-    let strategem = RandomAggro::initialize(Side::Black);
-    //let mut local_game = LocalGame::initialize(Box::new(strategem)).unwrap();
-    let mut game_runner = ChessComGame::initialize(Box::new(strategem)).unwrap();
+    // Given there's not a way to dynamically handle the type as a variable, instead we'll just handle each possible supported variation of runner+strategem combination.
+    let mut game_runner: Box<dyn Runner> = match args.runner {
+        RunnerChoices::LocalGame => match args.strategem {
+            StrategemChoices::RandomAggro => Box::new(LocalGame::initialize::<RandomAggro>().unwrap()),
+        }
+        RunnerChoices::ChessCom => match args.strategem {
+            StrategemChoices::RandomAggro => Box::new(ChessComGame::initialize::<RandomAggro>().unwrap()),
+        }
+    };
 
     let mut bot_move = false;
     let victory = loop {

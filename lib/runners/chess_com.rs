@@ -1,6 +1,6 @@
 use crate::{gamelogic::{pieces::Side, board::ChessBoard, index_pair_to_name, GameEnd}, stratagems::Stratagem};
 
-use super::{Connector, ConnectorError};
+use super::{Runner, RunnerError};
 
 use windows::Win32::Foundation::POINT;
 use windows::Win32::UI::WindowsAndMessaging::GetCursorPos;
@@ -16,8 +16,8 @@ pub struct ChessComGame {
     current_turn: Side
 }
 
-impl Connector for ChessComGame {
-    fn initialize(strat: Box<dyn Stratagem>) -> Result<Self, ConnectorError>
+impl Runner for ChessComGame {
+    fn initialize<T: Stratagem + 'static>() -> Result<Self, RunnerError>
         where Self: Sized
     {
         
@@ -33,11 +33,11 @@ impl Connector for ChessComGame {
         todo!()
     }
 
-    fn refresh_state(self: &mut Self) -> Result<(), ConnectorError> {
+    fn refresh_state(self: &mut Self) -> Result<(), RunnerError> {
         todo!()
     }
 
-    fn execute_bot_move(self: &mut Self) -> Result<(), ConnectorError> {
+    fn execute_bot_move(self: &mut Self) -> Result<(), RunnerError> {
         todo!()
     }
 

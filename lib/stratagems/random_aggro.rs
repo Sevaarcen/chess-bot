@@ -9,7 +9,7 @@ pub struct RandomAggro {
 }
 
 impl Stratagem for RandomAggro {
-    fn initialize(side: Side) -> Self {
+    fn initialize(side: Side) -> Self where Self : Sized {
         println!("Random Aggressive Strategem is active for side: {:?}", side);
         RandomAggro { player_side: side }
     }

@@ -1,6 +1,6 @@
 use crate::{gamelogic::{pieces::Side, board::ChessBoard, index_pair_to_name, GameEnd}, stratagems::Stratagem};
 
-use super::{Connector, ConnectorError};
+use super::{Runner, RunnerError};
 
 use std::io::{stdin, stdout, Write};
 
@@ -11,17 +11,18 @@ pub struct LocalGame {
     current_turn: Side
 }
 
-impl Connector for LocalGame {
-    fn initialize(strat: Box<dyn Stratagem>) -> Result<Self, ConnectorError>  where Self: Sized {
+impl Runner for LocalGame {
+    fn initialize<T: Stratagem + 'static>() -> Result<Self, RunnerError>  where Self: Sized {
+        let strat = <T as Stratagem>::initialize(Side::Black);
         Ok(LocalGame { 
             board: ChessBoard::new(),
             side: Side::White, // player will always be White because that's easier for me to handle :)
-            bot_opponent: strat,
+            bot_opponent: Box::new(strat),  // The runner doesn't know, nor care, about the type of the Strategem, as long as the trait is implemented.
             current_turn: Side::White,
         })
     }
 
-    fn refresh_state(self: &mut Self) -> Result<(), ConnectorError> {
+    fn refresh_state(self: &mut Self) -> Result<(), RunnerError> {
         println!("Current Board State\n{}", self.board);
         let user_move = 'outer: loop {
             let piece = loop {
@@ -86,7 +87,7 @@ impl Connector for LocalGame {
         Ok(())
     }
 
-    fn execute_bot_move(self: &mut Self) -> Result<(), ConnectorError> {
+    fn execute_bot_move(self: &mut Self) -> Result<(), RunnerError> {
         let bot_move = self.bot_opponent.get_move(&self.board);
         println!("Bot chose move: {:#?}", bot_move);
         self.board.perform_move_and_record(&bot_move).expect("Could not perform bot move");

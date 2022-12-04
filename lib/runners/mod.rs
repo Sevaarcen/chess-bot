@@ -9,7 +9,7 @@ pub mod chess_com;
 
 /// Different types of Errors related to chess logic specifically. All types wrap String containing a more detailed error message.
 #[derive(Debug)]
-pub enum ConnectorError {
+pub enum RunnerError {
     InitializationFaliure(String),
     ConnectionLost(String),
     UnreadableStateError(String),
@@ -18,21 +18,21 @@ pub enum ConnectorError {
 }
 
 
-impl Error for  ConnectorError {}
+impl Error for  RunnerError {}
 
 
-impl fmt::Display for ConnectorError {
+impl fmt::Display for RunnerError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{:?}", &self)
     }
 }
 
 
-pub trait Connector {
-    fn initialize(strat: Box<dyn Stratagem>) -> Result<Self, ConnectorError>
+pub trait Runner {
+    fn initialize<T: Stratagem + 'static>() -> Result<Self, RunnerError>
         where Self: Sized;
-    fn refresh_state(self: &mut Self) -> Result<(), ConnectorError>;
-    fn execute_bot_move(self: &mut Self) -> Result<(), ConnectorError>;
+    fn refresh_state(self: &mut Self) -> Result<(), RunnerError>;
+    fn execute_bot_move(self: &mut Self) -> Result<(), RunnerError>;
     fn check_victory(self: &Self) -> Option<GameEnd>;
 }
 
