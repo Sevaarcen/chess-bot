@@ -1,5 +1,9 @@
+use std::collections::HashMap;
 use std::collections::HashSet;
+use std::collections::hash_map::DefaultHasher;
 use std::fmt::Display;
+use std::hash::Hash;
+use std::hash::Hasher;
 
 use super::ChessError;
 use super::ChessMove;
@@ -14,7 +18,8 @@ use colored::*;
 #[derive(Clone, Debug)]
 pub struct ChessBoard {
     pub squares: [[Option<ChessPiece>; 8]; 8], // 0,0 = a1, 7,7 = h8
-    pub state: BoardStateFlags
+    pub state: BoardStateFlags,
+    board_history: HashMap<u64, usize>
 }
 
 #[derive(Copy, Clone, Debug, Default)]
@@ -63,7 +68,16 @@ impl ChessBoard {
         // create initialized ChessBoard object and pass back to caller
         ChessBoard {
             squares,  // 2d array of columns and rows
-            state: BoardStateFlags { ..Default::default() }  // start with all flags false
+            state: BoardStateFlags { ..Default::default() },  // start with all flags false
+            board_history: HashMap::new()
+        }
+    }
+
+    pub fn new_with_squares(setup: [[Option<ChessPiece>; 8]; 8]) -> Self {
+        ChessBoard {
+            squares: setup,  // 2d array of columns and rows
+            state: BoardStateFlags { ..Default::default() },  // start with all flags false
+            board_history: HashMap::new()
         }
     }
     
@@ -152,6 +166,18 @@ impl ChessBoard {
         Ok(())
     }
 
+    pub fn record_board_state(self: &mut Self) -> () {
+        let new_state_hash = self.get_board_state_hash();
+        let state_seen_count = self.board_history.entry(new_state_hash).or_default();
+        *state_seen_count = *state_seen_count + 1;
+    }
+
+    pub fn perform_move_and_record(self: &mut Self, chess_move: &ChessMove) -> Result<(), ()> {
+        self.perform_move(chess_move)?;
+        self.record_board_state();
+        Ok(())
+    }
+
     pub fn get_threatened(self: &Self, side: Side) -> Vec<(usize, usize)> {
         let mut threatened = Vec::new();
         // for every column and row
@@ -221,6 +247,13 @@ impl ChessBoard {
         moves
     }
 
+    pub fn get_board_state_hash(self: &Self) -> u64 {
+        let board_formatted = format!("{}", self);
+        let mut hasher = DefaultHasher::new();
+        board_formatted.hash(&mut hasher);
+        hasher.finish()
+    }
+
     /// Checks if there's a game ending state for the given board.
     /// 
     /// Reference: https://www.chess.com/article/view/how-chess-games-can-end-8-ways-explained
@@ -287,7 +320,10 @@ impl ChessBoard {
             return Some(GameEnd::Draw("Insufficient material".to_string()));
         }
 
-        // TODO handle Draw by Repetition
+        // check for draw by repition. If any board state hash has occured 3 or more times, it's a draw.
+        if self.board_history.values().find(|v| **v == 3).is_some() {
+            return Some(GameEnd::Draw("Draw by repetition".to_string()));
+        }
 
         // If no ending state has been identified, the game goes on
         None

@@ -79,7 +79,7 @@ impl Connector for LocalGame {
         };
 
         // perform the move the user requested
-        self.board.perform_move(&user_move).expect("Could not perform player move");
+        self.board.perform_move_and_record(&user_move).expect("Could not perform player move");
         println!("Board After Player Move:\n{}", self.board);
         // get the bot move and perform it too
         self.current_turn = !self.current_turn;
@@ -89,7 +89,7 @@ impl Connector for LocalGame {
     fn execute_bot_move(self: &mut Self) -> Result<(), ConnectorError> {
         let bot_move = self.bot_opponent.get_move(&self.board);
         println!("Bot chose move: {:#?}", bot_move);
-        self.board.perform_move(&bot_move).expect("Could not perform bot move");
+        self.board.perform_move_and_record(&bot_move).expect("Could not perform bot move");
         self.current_turn = !self.current_turn;
         Ok(()) // the game is entirely managed by the internal board state, no external system needs to be interacted with
     }

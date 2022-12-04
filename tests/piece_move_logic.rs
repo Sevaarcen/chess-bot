@@ -49,11 +49,9 @@ lazy_static! {
         custom_setup_squares[7][6] = Some(ChessPiece { position: (7,6), side: Side::Black, piece_type: PieceType::Pawn});
         custom_setup_squares[7][7] = Some(ChessPiece { position: (7,7), side: Side::Black, piece_type: PieceType::Rook});
 
-        let board = ChessBoard {
-            squares: custom_setup_squares,
-            state: Default::default()
-        };
+        let board = ChessBoard::new_with_squares(custom_setup_squares);
 
+        // wrap board in an Arc to send between threads since tests are parallel, and use a RwLock to allow simulataneous reading
         Arc::new(RwLock::new(board))
     };
 }

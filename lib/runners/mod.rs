@@ -4,6 +4,7 @@ use std::error::Error;
 use crate::{gamelogic::GameEnd, stratagems::Stratagem};
 
 pub mod local_game;
+pub mod chess_com;
 
 
 /// Different types of Errors related to chess logic specifically. All types wrap String containing a more detailed error message.

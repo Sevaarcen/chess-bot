@@ -1,4 +1,4 @@
-use chessbot_lib::{gamelogic::{pieces::Side, index_pair_to_name}, stratagems::{Stratagem, random_aggro::RandomAggro}, runners::{Connector, local_game::LocalGame}};
+use chessbot_lib::{gamelogic::{pieces::Side, index_pair_to_name}, stratagems::{Stratagem, random_aggro::RandomAggro}, runners::{Connector, local_game::LocalGame, chess_com::ChessComGame}};
 
 extern crate chessbot_lib;
 
@@ -41,20 +41,21 @@ fn main() {
     // };
 
     let strategem = RandomAggro::initialize(Side::Black);
-    let mut local_game = LocalGame::initialize(Box::new(strategem)).unwrap();
+    //let mut local_game = LocalGame::initialize(Box::new(strategem)).unwrap();
+    let mut game_runner = ChessComGame::initialize(Box::new(strategem)).unwrap();
 
     let mut bot_move = false;
     let victory = loop {
-        if local_game.check_victory().is_some() {
-            break local_game.check_victory().unwrap();
+        if game_runner.check_victory().is_some() {
+            break game_runner.check_victory().unwrap();
         }
         match bot_move {
             true => {
-                local_game.execute_bot_move().expect("Failed to perform bot move");
+                game_runner.execute_bot_move().expect("Failed to perform bot move");
                 bot_move = false; 
             },
             false => {
-                local_game.refresh_state().expect("Failed to refresh game state");
+                game_runner.refresh_state().expect("Failed to refresh game state");
                 bot_move = true;
             },
         }
