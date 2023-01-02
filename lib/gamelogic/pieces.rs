@@ -970,6 +970,12 @@ fn get_king_moves(piece: &ChessPiece, board: &ChessBoard) -> Vec<ChessMove> {
                             break
                         }
                     };
+                    // verify the piece in the castle's position is actually the castle of the correct side, and wasn't captured at some point.
+                    if can_castle && board.get_square_by_index(1, current_row).is_some() {
+                        let rook_piece = board.get_square_by_index(1, current_row).unwrap();
+                        can_castle = piece.side == rook_piece.side && rook_piece.piece_type == PieceType::Rook;
+                    }
+                    // if all checks pass, we can castle
                     if can_castle {
                         possible_moves.push(ChessMove {
                             from_square: (current_col, current_row),
@@ -1003,6 +1009,11 @@ fn get_king_moves(piece: &ChessPiece, board: &ChessBoard) -> Vec<ChessMove> {
                             can_castle = false;
                             break
                         }
+                    }
+                    // verify the piece in the castle's position is actually the castle of the correct side, and wasn't captured at some point.
+                    if can_castle && board.get_square_by_index(7, current_row).is_some() {
+                        let rook_piece = board.get_square_by_index(1, current_row).unwrap();
+                        can_castle = piece.side == rook_piece.side && rook_piece.piece_type == PieceType::Rook;
                     }
                     if can_castle {
                         possible_moves.push(ChessMove {
@@ -1042,6 +1053,11 @@ fn get_king_moves(piece: &ChessPiece, board: &ChessBoard) -> Vec<ChessMove> {
                             break
                         }
                     }
+                    // verify the piece in the castle's position is actually the castle of the correct side, and wasn't captured at some point.
+                    if can_castle && board.get_square_by_index(1, current_row).is_some() {
+                        let rook_piece = board.get_square_by_index(1, current_row).unwrap();
+                        can_castle = piece.side == rook_piece.side && rook_piece.piece_type == PieceType::Rook;
+                    }
                     if can_castle {
                         possible_moves.push(ChessMove {
                             from_square: (current_col, current_row),
@@ -1075,6 +1091,11 @@ fn get_king_moves(piece: &ChessPiece, board: &ChessBoard) -> Vec<ChessMove> {
                             can_castle = false;
                             break
                         }
+                    }
+                    // verify the piece in the castle's position is actually the castle of the correct side, and wasn't captured at some point.
+                    if can_castle && board.get_square_by_index(7, current_row).is_some() {
+                        let rook_piece = board.get_square_by_index(1, current_row).unwrap();
+                        can_castle = piece.side == rook_piece.side && rook_piece.piece_type == PieceType::Rook;
                     }
                     if can_castle {
                         possible_moves.push(ChessMove {
