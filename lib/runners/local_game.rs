@@ -4,6 +4,7 @@ use super::{Runner, RunnerError};
 
 use std::io::{stdin, stdout, Write};
 
+
 pub struct LocalGame {
     pub board: ChessBoard,
     side: Side,
@@ -11,8 +12,9 @@ pub struct LocalGame {
     current_turn: Side
 }
 
+
 impl Runner for LocalGame {
-    fn initialize<T: Stratagem + 'static>() -> Result<Self, RunnerError>  where Self: Sized {
+    fn initialize<T: Stratagem + 'static>(_: Vec<String>) -> Result<Self, RunnerError>  where Self: Sized {
         let strat = <T as Stratagem>::initialize(Side::Black);
         Ok(LocalGame { 
             board: ChessBoard::new(),
@@ -21,6 +23,26 @@ impl Runner for LocalGame {
             current_turn: Side::White,
         })
     }
+
+    fn run_game(self: &mut Self) -> Result<GameEnd, RunnerError> {
+        let mut bot_move = false;
+        loop {
+            if self.check_victory().is_some() {
+                return Ok(self.check_victory().unwrap())
+            }
+            match bot_move {
+                true => {
+                    self.execute_bot_move().expect("Failed to perform bot move");
+                    bot_move = false; 
+                },
+                false => {
+                    self.refresh_state().expect("Failed to refresh game state");
+                    bot_move = true;
+                },
+            }
+        }
+    }
+
 
     fn refresh_state(self: &mut Self) -> Result<(), RunnerError> {
         println!("Current Board State\n{}", self.board);
@@ -87,6 +109,7 @@ impl Runner for LocalGame {
         Ok(())
     }
 
+
     fn execute_bot_move(self: &mut Self) -> Result<(), RunnerError> {
         let bot_move = self.bot_opponent.get_move(&self.board);
         println!("Bot chose move: {:#?}", bot_move);
@@ -94,6 +117,7 @@ impl Runner for LocalGame {
         self.current_turn = !self.current_turn;
         Ok(()) // the game is entirely managed by the internal board state, no external system needs to be interacted with
     }
+
 
     fn check_victory(self: &Self) -> Option<GameEnd> {
         self.board.is_game_over(self.current_turn)

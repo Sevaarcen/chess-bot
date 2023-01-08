@@ -29,8 +29,9 @@ impl fmt::Display for RunnerError {
 
 
 pub trait Runner {
-    fn initialize<T: Stratagem + 'static>() -> Result<Self, RunnerError>
+    fn initialize<T: Stratagem + 'static>(args: Vec<String>) -> Result<Self, RunnerError>
         where Self: Sized;
+    fn run_game(self: &mut Self) -> Result<GameEnd, RunnerError>;
     fn refresh_state(self: &mut Self) -> Result<(), RunnerError>;
     fn execute_bot_move(self: &mut Self) -> Result<(), RunnerError>;
     fn check_victory(self: &Self) -> Option<GameEnd>;
