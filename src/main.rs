@@ -1,4 +1,4 @@
-use chessbot_lib::{stratagems::random_aggro::RandomAggro, runners::{Runner, local_game::LocalGame, chess_com::ChessComGame}};
+use chessbot_lib::{stratagems::{random_aggro::RandomAggro, cole_miner::ColeMiner}, runners::{Runner, local_game::LocalGame, chess_com::ChessComGame}};
 
 extern crate chessbot_lib;
 
@@ -26,7 +26,8 @@ struct Args {
 #[derive(Debug, ValueEnum, Clone)]
 #[value(rename_all="PascalCase")]
 enum StrategemChoices {
-    RandomAggro
+    RandomAggro,
+    ColeMiner
 }
 
 
@@ -46,9 +47,11 @@ fn main() {
     let mut game_runner: Box<dyn Runner> = match args.runner {
         RunnerChoices::LocalGame => match args.strategem {
             StrategemChoices::RandomAggro => Box::new(LocalGame::initialize::<RandomAggro>(args.runner_args).unwrap()),
+            StrategemChoices::ColeMiner => Box::new(LocalGame::initialize::<ColeMiner>(args.runner_args).unwrap()),
         }
         RunnerChoices::ChessCom => match args.strategem {
             StrategemChoices::RandomAggro => Box::new(ChessComGame::initialize::<RandomAggro>(args.runner_args).unwrap()),
+            StrategemChoices::ColeMiner => Box::new(ChessComGame::initialize::<ColeMiner>(args.runner_args).unwrap()),
         }
     };
 

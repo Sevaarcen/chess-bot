@@ -14,7 +14,7 @@ impl Stratagem for RandomAggro {
         RandomAggro { player_side: side }
     }
 
-    fn get_move(self: &Self, board_state: &ChessBoard) -> ChessMove {
+    fn get_move(self: &mut Self, board_state: &ChessBoard) -> ChessMove {
         let mut possible_moves = board_state.get_all_moves(self.player_side);
         eprintln!("Bot has {} valid moves", possible_moves.len());
         let random_index = rand::thread_rng().gen_range(0..possible_moves.len());

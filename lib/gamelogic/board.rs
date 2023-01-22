@@ -19,7 +19,8 @@ use colored::*;
 pub struct ChessBoard {
     pub squares: [[Option<ChessPiece>; 8]; 8], // 0,0 = a1, 7,7 = h8
     pub state: BoardStateFlags,
-    board_history: HashMap<u64, usize>
+    board_state_counts: HashMap<u64, usize>,
+    pub move_list: Vec<ChessMove>
 }
 
 #[derive(Copy, Clone, Debug, Default)]
@@ -69,7 +70,8 @@ impl ChessBoard {
         ChessBoard {
             squares,  // 2d array of columns and rows
             state: BoardStateFlags { ..Default::default() },  // start with all flags false
-            board_history: HashMap::new()
+            board_state_counts: HashMap::new(),
+            move_list: Vec::new()
         }
     }
 
@@ -77,13 +79,35 @@ impl ChessBoard {
         ChessBoard {
             squares: setup,  // 2d array of columns and rows
             state: BoardStateFlags { ..Default::default() },  // start with all flags false
-            board_history: HashMap::new()
+            board_state_counts: HashMap::new(),
+            move_list: Vec::new()
         }
+    }
+
+    pub fn new_from_forsyth_edwards(fen_string: String) -> Result<Self, ChessError> {
+        todo!()
+    }
+
+    pub fn get_total_materials(self: &Self, side: Side) -> usize {
+        self.squares.iter()
+            .map(
+                |row| 
+                row.iter()
+                    .filter(|square| square.is_some())
+                    .filter(|square| square.unwrap().side == side)
+                    .map(|square| square.unwrap().get_material())
+                    .sum::<usize>()
+            )
+            .sum::<usize>()
     }
     
     pub fn get_square_by_index(self: &Self, column: usize, row: usize) -> Option<ChessPiece> {
         // TODO change to result in case given indexes are known to be out of range? or just deal w/ potential run-time error
         self.squares[column][row]
+    }
+
+    pub fn get_square_by_position(self: &Self, position: (usize, usize)) -> Option<ChessPiece> {
+        self.get_square_by_index(position.0, position.1)
     }
 
     pub fn get_square_by_name(self: &Self, square_name: String) -> Result<Option<ChessPiece>, ChessError> {
@@ -168,13 +192,14 @@ impl ChessBoard {
 
     pub fn record_board_state(self: &mut Self) -> () {
         let new_state_hash = self.get_board_state_hash();
-        let state_seen_count = self.board_history.entry(new_state_hash).or_default();
+        let state_seen_count = self.board_state_counts.entry(new_state_hash).or_default();
         *state_seen_count = *state_seen_count + 1;
     }
 
     pub fn perform_move_and_record(self: &mut Self, chess_move: &ChessMove) -> Result<(), ()> {
         self.perform_move(chess_move)?;
         self.record_board_state();
+        self.move_list.push(chess_move.clone());
         Ok(())
     }
 
@@ -321,7 +346,7 @@ impl ChessBoard {
         }
 
         // check for draw by repition. If any board state hash has occured 3 or more times, it's a draw.
-        if self.board_history.values().find(|v| **v == 3).is_some() {
+        if self.board_state_counts.values().find(|v| **v == 3).is_some() {
             return Some(GameEnd::Draw("Draw by repetition".to_string()));
         }
 

@@ -158,6 +158,8 @@ impl Runner for ChessComGame {
             .perform()
             .expect("Unable to click TO square");
 
+        // TODO - do promotions
+
         eprintln!("Done with bot interaction, recording move");
         self.board.perform_move_and_record(&bot_move).expect("Could not perform bot move");
         self.current_turn = !self.current_turn;
