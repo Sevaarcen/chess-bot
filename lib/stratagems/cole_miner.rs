@@ -1,6 +1,5 @@
-use std::{borrow::Borrow, cmp::Ordering};
+use std::cmp::Ordering;
 
-use rand::Rng;
 use itertools::Itertools;
 
 use crate::gamelogic::{board::ChessBoard, pieces::Side, ChessMove, name_to_index_pair, MoveType};
@@ -169,7 +168,7 @@ impl ColeMiner {
             // Sort by the highest material capture
             .sorted_by(|m1, m2| {
                 let m1_threatened_piece = board_state.get_square_by_position(m1.captures.unwrap()).unwrap();
-                let m2_threatened_piece = board_state.get_square_by_position(m1.captures.unwrap()).unwrap();
+                let m2_threatened_piece = board_state.get_square_by_position(m2.captures.unwrap()).unwrap();
 
                 m2_threatened_piece.get_material().cmp(&m1_threatened_piece.get_material())
             })
