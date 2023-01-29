@@ -234,6 +234,27 @@ impl ChessBoard {
         threatened.contains(&square)
     }
 
+    pub fn get_square_threats(self: &Self, side: Side, square: (usize, usize)) -> Vec<ChessPiece> {
+        let mut threateners = Vec::new();
+
+        for col in self.squares {
+            for cell in col {
+                if cell.is_none() {
+                    continue;
+                }
+                let piece = cell.unwrap();
+                if piece.side != side {
+                    continue;
+                }
+                let piece_threats = piece.get_threats(&self);
+                if piece_threats.contains(&square) {
+                    threateners.push(piece)
+                }
+            }
+        }
+        threateners
+    }
+
     pub fn is_checked(self: &Self, side: Side) -> bool {
         let king_piece = self.squares.iter()
             .find_map(|row| {

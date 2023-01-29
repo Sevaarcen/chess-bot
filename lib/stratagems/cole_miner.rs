@@ -2,15 +2,14 @@ use std::cmp::Ordering;
 
 use itertools::Itertools;
 
-use crate::gamelogic::{board::ChessBoard, pieces::Side, ChessMove, name_to_index_pair, MoveType};
+use crate::gamelogic::{board::ChessBoard, pieces::{Side, PieceType}, ChessMove, name_to_index_pair, MoveType};
 
 use super::Stratagem;
 
 #[derive(Debug)]
 enum GamePhase {
     Opening,
-    Midgame,
-    Endgame
+    MainGame
 }
 
 #[derive(Debug)]
@@ -19,6 +18,23 @@ struct PlannedMoveSequence {
     previous_moves: Vec<Option<ChessMove>>,
     planned_move: ChessMove
 }
+
+#[derive(Debug)]
+struct DetailedMove {
+    chess_move: ChessMove,
+    is_hanging: bool,
+    hangs_piece: bool,
+    pre_num_threats: usize,
+    post_num_threats: usize,
+    pre_num_defends: usize,
+    post_num_defends: usize,
+    // pre_highest_threat: Option<usize>,
+    // post_highest_threat:Option< usize>,
+    pre_lowest_threatener: Option<usize>,
+    post_lowest_threatener: Option<usize>,
+    king_distance: usize
+}
+
 
 impl From<&str> for PlannedMoveSequence {
     fn from(s: &str) -> Self {
@@ -95,8 +111,7 @@ impl Stratagem for ColeMiner {
     fn get_move(self: &mut Self, board_state: &ChessBoard) -> ChessMove {
         match self.current_state {
             GamePhase::Opening => self.get_opening_moves(board_state),
-            GamePhase::Midgame => self.get_midgame_moves(board_state),
-            GamePhase::Endgame => self.get_endgame_moves(board_state),
+            GamePhase::MainGame => self.get_standard_game_moves(board_state)
         }
     }
 }
@@ -137,20 +152,60 @@ impl ColeMiner {
             Some(m)=> m,
             None => {
                 // if we don't have any moves left in the list, go into midgame
-                self.enter_midgame();
-                self.get_midgame_moves(board_state)
+                self.enter_main_game();
+                self.get_standard_game_moves(board_state)
             },
         }
     }
 
-    fn enter_midgame(self: &mut Self) {
-        self.current_state = GamePhase::Midgame;
+    fn enter_main_game(self: &mut Self) {
+        self.current_state = GamePhase::MainGame;
         println!("#==============================================================================#");
-        println!("|  ENTERED MIDGAME                                                             |");
+        println!("|  WE'RE OUT OF THE OPENING NOW                                                |");
         println!("#==============================================================================#");
     }
 
-    fn get_midgame_moves(self: &Self, board_state: &ChessBoard) -> ChessMove {
+    fn get_detailed_moves(self: &Self, board_state: &ChessBoard) -> Vec<DetailedMove> {
+        let mut detailed_moves = Vec::new();
+
+        let all_player_pieces = board_state.get_all_pieces(self.player_side);
+        let opponent_pieces = board_state.get_all_pieces(!self.player_side);
+        let opponent_king = opponent_pieces.iter().find(|p| p.piece_type == PieceType::King).unwrap();
+
+        for piece in all_player_pieces {
+            let piece_moves = piece.get_moves(board_state);
+            let threats = board_state.get_square_threats(self.player_side, piece.position);
+            let defends = board_state.get_square_threats(!self.player_side, piece.position);
+
+            for m in piece_moves {
+                let post_threats = board_state.get_square_threats(self.player_side, m.destination);
+                let post_defends = board_state.get_square_threats(!self.player_side, m.destination);
+
+                detailed_moves.push(DetailedMove {
+                    chess_move: m.clone(),
+                    is_hanging: !threats.is_empty() && defends.is_empty(),
+                    hangs_piece: m.dest_threatened && !m.dest_defended,
+                    pre_num_threats: threats.len(),
+                    post_num_threats: post_threats.len(),
+                    pre_num_defends: defends.len(),
+                    post_num_defends: post_defends.len(),
+                    // pre_highest_threat: threats.iter().map(|p| p.get_material()).sorted().last(),
+                    // post_highest_threat: todo!(),
+                    pre_lowest_threatener: threats.iter().map(|p| p.get_material()).sorted().last(),
+                    post_lowest_threatener: post_threats.iter().map(|p| p.get_material()).sorted().last(),
+                    king_distance: ((m.destination.0 as i64 - opponent_king.position.0 as i64).pow(2) + (m.destination.1 as i64 - opponent_king.position.1 as i64).pow(2)) as usize,
+                })
+            }
+        }
+
+        detailed_moves
+    }
+
+    fn rank_move(the_move: DetailedMove) -> usize {
+        the_move.king_distance
+    }
+
+    fn get_standard_game_moves(self: &Self, board_state: &ChessBoard) -> ChessMove {
         let all_possible_moves = board_state.get_all_moves(self.player_side);
         let all_player_pieces = board_state.get_all_pieces(self.player_side);
 
@@ -224,17 +279,6 @@ impl ColeMiner {
             return cap.clone();
         } else {
             non_capture_moves[0].clone()
-        }
-    }
-
-    fn get_endgame_moves(self: &Self, board_state: &ChessBoard) -> ChessMove {
-        ChessMove {
-            from_square: todo!(),
-            destination: todo!(),
-            move_type: todo!(),
-            captures: todo!(),
-            dest_threatened: todo!(),
-            dest_defended: todo!(),
         }
     }
 }
