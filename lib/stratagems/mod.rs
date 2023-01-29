@@ -1,4 +1,4 @@
-use crate::gamelogic::{board::ChessBoard, ChessMove, pieces::Side};
+use crate::gamelogic::{board::ChessBoard, ChessMove, Side};
 
 pub mod random_aggro;
 pub mod cole_miner;

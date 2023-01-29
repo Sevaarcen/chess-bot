@@ -1,4 +1,4 @@
-use chessbot_lib::gamelogic::{board::ChessBoard, pieces::{Side, PieceType}};
+use chessbot_lib::gamelogic::{board::ChessBoard, pieces::PieceType, Side};
 
 #[test]
 fn get_square_a1_ok_white_rook() {

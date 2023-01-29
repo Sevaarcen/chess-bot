@@ -1,4 +1,4 @@
-use crate::{gamelogic::{pieces::Side, board::ChessBoard, index_pair_to_name, GameEnd}, stratagems::Stratagem};
+use crate::{gamelogic::{board::ChessBoard, index_pair_to_name, GameEnd, Side}, stratagems::Stratagem};
 
 use super::{Runner, RunnerError};
 
@@ -16,7 +16,7 @@ pub struct LocalGame {
 impl Runner for LocalGame {
     fn initialize<T: Stratagem + 'static>(_: Vec<String>) -> Result<Self, RunnerError>  where Self: Sized {
         let strat = <T as Stratagem>::initialize(Side::Black);
-        Ok(LocalGame { 
+        Ok(LocalGame {
             board: ChessBoard::new(),
             side: Side::White, // player will always be White because that's easier for me to handle :)
             bot_opponent: Box::new(strat),  // The runner doesn't know, nor care, about the type of the Strategem, as long as the trait is implemented.
@@ -33,7 +33,7 @@ impl Runner for LocalGame {
             match bot_move {
                 true => {
                     self.execute_bot_move().expect("Failed to perform bot move");
-                    bot_move = false; 
+                    bot_move = false;
                 },
                 false => {
                     self.refresh_state().expect("Failed to refresh game state");

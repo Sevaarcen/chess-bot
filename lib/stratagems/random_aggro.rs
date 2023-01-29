@@ -1,6 +1,6 @@
 use rand::Rng;
 
-use crate::gamelogic::{board::ChessBoard, pieces::Side, ChessMove};
+use crate::gamelogic::{board::ChessBoard, ChessMove, Side};
 
 use super::Stratagem;
 
@@ -18,7 +18,7 @@ impl Stratagem for RandomAggro {
         let mut possible_moves = board_state.get_all_moves(self.player_side);
         eprintln!("Bot has {} valid moves", possible_moves.len());
         let random_index = rand::thread_rng().gen_range(0..possible_moves.len());
-        
+
         let highest_value_capture = possible_moves.iter()
             .enumerate()
             .filter(

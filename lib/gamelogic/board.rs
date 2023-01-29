@@ -9,11 +9,12 @@ use super::ChessError;
 use super::ChessMove;
 use super::GameEnd;
 use super::MoveType;
+use super::Side;
+use super::index_pair_to_name;
 use super::name_to_index_pair;
-use super::pieces::{ChessPiece, Side, PieceType};
+use super::pieces::{ChessPiece, PieceType};
 
 use colored::*;
-
 
 #[derive(Clone, Debug)]
 pub struct ChessBoard {
@@ -23,15 +24,27 @@ pub struct ChessBoard {
     pub move_list: Vec<ChessMove>
 }
 
-#[derive(Copy, Clone, Debug, Default)]
+#[derive(Copy, Clone, Debug)]
 pub struct BoardStateFlags {
-    pub white_king_moved: bool,
-    pub white_queen_rook_moved: bool,
-    pub white_king_rook_moved: bool,
-    pub black_king_moved: bool,
-    pub black_queen_rook_moved: bool,
-    pub black_king_rook_moved: bool,
+    pub white_castle_queenside: bool,
+    pub white_castle_kingside: bool,
+    pub black_castle_queenside: bool,
+    pub black_castle_kingside: bool,
     pub en_passant_column: Option<usize>,
+    pub current_turn: Side
+}
+
+impl Default for BoardStateFlags {
+    fn default() -> Self {
+        Self {
+            white_castle_queenside: true,
+            white_castle_kingside: true,
+            black_castle_queenside: true,
+            black_castle_kingside: true,
+            en_passant_column: Default::default(),
+            current_turn: Default::default()
+        }
+    }
 }
 
 
@@ -88,10 +101,76 @@ impl ChessBoard {
         todo!()
     }
 
+    pub fn to_forsyth_edwards(self: &Self) -> String {
+        // figure out where all the pieces are
+        let mut piece_placement = String::new();
+        for row in 0..=7 {
+            let mut empty_squares = 0;
+            for col in 0..=7 {
+                let s = self.squares[col][7 - row];  // we start on rank 8 and go to rank 1
+                match s {
+                    Some(p) => {
+                        if empty_squares > 0 {
+                            piece_placement.push(char::from_u32(48 + empty_squares).unwrap());
+                            empty_squares = 0;
+                        }
+                        piece_placement.push(p.into());
+                    },
+                    None => empty_squares += 1
+                }
+            }
+            if empty_squares > 0 {
+                piece_placement.push(char::from_u32(48 + empty_squares).unwrap());
+            }
+            if row != 7 {
+                piece_placement.push('/');
+            }
+        }
+
+        // get current turn
+        let active_side = match self.state.current_turn {
+            Side::White => 'w',
+            Side::Black => 'b',
+        };
+
+        // determine what, if any, castling ability players have (ignoring temp restrictions)
+        let mut castling_ability = String::new();
+        if self.state.white_castle_kingside {
+            castling_ability.push('K');
+        }
+        if self.state.white_castle_queenside {
+            castling_ability.push('Q');
+        }
+        if self.state.black_castle_kingside {
+            castling_ability.push('k');
+        }
+        if self.state.black_castle_queenside {
+            castling_ability.push('q');
+        }
+        if castling_ability.is_empty() {
+            castling_ability = "-".to_string();
+        }
+
+        // figure out en passant target square if applicable
+        let en_passant_sqr = match self.state.en_passant_column {
+            // the target row is always going to be the same depending on the opponent side
+            Some(c) => match !self.state.current_turn {
+                Side::White => index_pair_to_name(c, 2).unwrap(),
+                Side::Black => index_pair_to_name(c, 5).unwrap(),
+            },
+            None => "-".to_string(),
+        };
+
+        let halfmove_clock = 0;  // TODO do I even need these?
+        let fullmove_click = 0;
+
+        format!("{} {} {} {} {} {}", piece_placement, active_side, castling_ability, en_passant_sqr, halfmove_clock, fullmove_click)
+    }
+
     pub fn get_total_materials(self: &Self, side: Side) -> usize {
         self.squares.iter()
             .map(
-                |row| 
+                |row|
                 row.iter()
                     .filter(|square| square.is_some())
                     .filter(|square| square.unwrap().side == side)
@@ -100,7 +179,7 @@ impl ChessBoard {
             )
             .sum::<usize>()
     }
-    
+
     pub fn get_square_by_index(self: &Self, column: usize, row: usize) -> Option<ChessPiece> {
         // TODO change to result in case given indexes are known to be out of range? or just deal w/ potential run-time error
         self.squares[column][row]
@@ -149,9 +228,7 @@ impl ChessBoard {
                     from_square: (castle_from_col, dest_row),
                     destination: (castle_dest_col, dest_row),
                     move_type: MoveType::Standard,
-                    captures: None,
-                    dest_threatened: false,
-                    dest_defended: true,
+                    captures: None
                 };
                 self.perform_move(&castle_move)?;
             },
@@ -163,13 +240,13 @@ impl ChessBoard {
         if piece.piece_type == PieceType::Rook {
             match current_position {
                 // white queen's rook
-                (0, 0) => self.state.white_queen_rook_moved = true,
+                (0, 0) => self.state.white_castle_queenside = false,
                 // white king's rook
-                (7, 0) => self.state.white_king_rook_moved = true,
+                (7, 0) => self.state.white_castle_kingside = false,
                 // black queen's rook
-                (0, 7) => self.state.black_queen_rook_moved = true,
+                (0, 7) => self.state.black_castle_queenside = false,
                 // black king's rook
-                (7, 7) => self.state.black_king_rook_moved = true,
+                (7, 7) => self.state.black_castle_kingside = false,
                 // if it's any move other than off the starting square, no flags need to be changed
                 _ => ()
             }
@@ -177,8 +254,14 @@ impl ChessBoard {
         // if the king is what moved, unset the flags to disable castling
         if piece.piece_type == PieceType::King {
             match piece.side {
-                Side::White => self.state.white_king_moved = true,
-                Side::Black => self.state.black_king_moved = true,
+                Side::White => {
+                    self.state.white_castle_kingside = false;
+                    self.state.white_castle_queenside = false;
+                },
+                Side::Black => {
+                    self.state.black_castle_kingside = false;
+                    self.state.black_castle_queenside = false;
+                },
             }
         }
 
@@ -197,6 +280,7 @@ impl ChessBoard {
     }
 
     pub fn perform_move_and_record(self: &mut Self, chess_move: &ChessMove) -> Result<(), ()> {
+        self.state.current_turn = !self.get_square_by_position(chess_move.from_square).unwrap().side;
         self.perform_move(chess_move)?;
         self.record_board_state();
         self.move_list.push(chess_move.clone());
@@ -260,7 +344,7 @@ impl ChessBoard {
             .find_map(|row| {
                 row.iter()
                     .find(
-                        |square| 
+                        |square|
                         square.is_some() && (square.unwrap().piece_type == PieceType::King && square.unwrap().side == side)
                     )
                     .map(|s| s.clone()
@@ -301,7 +385,7 @@ impl ChessBoard {
     }
 
     /// Checks if there's a game ending state for the given board.
-    /// 
+    ///
     /// Reference: https://www.chess.com/article/view/how-chess-games-can-end-8-ways-explained
     pub fn is_game_over(self: &Self, current_turn: Side) -> Option<GameEnd> {
         match current_turn {

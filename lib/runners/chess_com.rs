@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use crate::{gamelogic::{pieces::Side, board::ChessBoard, index_pair_to_name, GameEnd}, stratagems::Stratagem};
+use crate::{gamelogic::{board::ChessBoard, index_pair_to_name, GameEnd, MoveType, Side}, stratagems::Stratagem};
 
 use super::{Runner, RunnerError};
 
@@ -121,11 +121,13 @@ impl Runner for ChessComGame {
         };
 
         eprintln!("Opponent performed move {:?} to {:?}", index_pair_to_name(from_square.0, from_square.1).unwrap(), index_pair_to_name(to_square.0, to_square.1).unwrap());
+        eprintln!("FEN after opponent move: {}", self.board.to_forsyth_edwards());
         let moved_piece = self.board.get_square_by_index(from_square.0, from_square.1).expect("Uhhh... the piece that's supposed to move doesn't exist");
 
         let the_move = moved_piece.get_specific_move(&self.board, to_square).expect("Uhhh... the move that the opponent performed isn't in the list of valid moves.");
         self.board.perform_move_and_record(&the_move).expect("Unable to perform opponent move");
 
+        eprintln!("FEN after bot move: {}", self.board.to_forsyth_edwards());
         println!("{}", self.board);
 
         self.current_turn = !self.current_turn;
@@ -141,7 +143,7 @@ impl Runner for ChessComGame {
 
         // with the chosen bot's move, perform it on chess.com and make sure it was actually performed.
         let from_square_element = self.driver.find_element(By::ClassName(&from_classname)).expect("Something went wrong -- unable to select FROM square");
-        
+
         eprintln!("Clicking FROM square");
         self.driver.action_chain()
             .move_to_element_center(&from_square_element)
@@ -150,7 +152,7 @@ impl Runner for ChessComGame {
             .expect("Unable to click FROM square");
 
         let to_square_element = self.driver.find_element(By::ClassName(&to_classname)).expect("Something went wrong -- unable to select TO square");
-        
+
         eprintln!("Clicking TO square");
         self.driver.action_chain()
             .move_to_element_center(&to_square_element)
@@ -158,7 +160,21 @@ impl Runner for ChessComGame {
             .perform()
             .expect("Unable to click TO square");
 
-        // TODO - do promotions
+        // handle clicking the button to promote to queen
+        if bot_move.move_type == MoveType::Promotion {
+            eprintln!("Attempting promotion");
+            // Since we're looking for an element with two CSS classes, use a . between the two classnames to select an element with both
+            let classname = match self.player_side {
+                Side::White => "promotion-piece.wq",
+                Side::Black => "promotion-piece.bq",
+            };
+            let promotion_element = self.driver.find_element(By::ClassName(classname)).expect("No promotion view while attempting to promote!?");
+            self.driver.action_chain()
+                .move_to_element_center(&promotion_element)
+                .click()
+                .perform()
+                .expect("Unable to click promotion button");
+        }
 
         eprintln!("Done with bot interaction, recording move");
         self.board.perform_move_and_record(&bot_move).expect("Could not perform bot move");

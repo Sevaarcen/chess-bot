@@ -3,7 +3,7 @@ extern crate lazy_static;
 
 use std::sync::{Arc, RwLock};
 
-use chessbot_lib::gamelogic::{board::ChessBoard, pieces::{Side, PieceType, ChessPiece}, index_pair_to_name, MoveType, ChessMove, name_to_index_pair};
+use chessbot_lib::gamelogic::{board::ChessBoard, pieces::{PieceType, ChessPiece}, index_pair_to_name, MoveType, ChessMove, name_to_index_pair, Side};
 
 
 /*
@@ -81,7 +81,7 @@ fn white_h3_knight_is_pinned() {
 fn en_passant_capture() {
     let original_board = CUSTOM_BOARD.read().unwrap();
     let mut board = original_board.clone();
-    
+
     let black_pawn_opt = board.get_square_by_name("g7".to_string()).unwrap();
     assert!(black_pawn_opt.is_some());
 
@@ -89,9 +89,7 @@ fn en_passant_capture() {
         from_square: name_to_index_pair("g7".to_string()).unwrap(),
         destination: (6,4),
         move_type: MoveType::Standard,
-        captures: None,
-        dest_defended: true,
-        dest_threatened: true
+        captures: None
     };
 
     // move black pawn double forward opening up to en passant move
@@ -108,9 +106,7 @@ fn en_passant_capture() {
         from_square: name_to_index_pair("f5".to_string()).unwrap(),
         destination: (6,5),
         move_type: MoveType::EnPassant,
-        captures: Some((6, 4)),
-        dest_defended: false,
-        dest_threatened: true
+        captures: Some((6, 4))
     };
     assert!(board.perform_move(&white_move).is_ok());
 
@@ -127,10 +123,10 @@ fn en_passant_capture() {
 fn white_pawn_knight_capture() {
     let original_board = CUSTOM_BOARD.read().unwrap();
     let mut board = original_board.clone();
-    
+
     let white_pawn_opt = board.get_square_by_name("g2".to_string()).unwrap();
     assert!(white_pawn_opt.is_some());
-    
+
     let white_pawn = white_pawn_opt.unwrap();
     let white_move_res = white_pawn.get_specific_move(&board, name_to_index_pair("f3".to_string()).unwrap());
     assert!(white_move_res.is_ok());

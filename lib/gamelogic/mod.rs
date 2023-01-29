@@ -6,6 +6,18 @@ use self::board::ChessBoard;
 pub mod board;
 pub mod pieces;
 
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum Side {
+    White,
+    Black
+}
+
+impl Default for Side {
+    fn default() -> Self {
+        Side::White
+    }
+}
+
 /// Different types of Errors related to chess logic specifically. All types wrap String containing a more detailed error message.
 #[derive(Debug)]
 pub enum ChessError {
@@ -37,9 +49,7 @@ pub struct ChessMove {
     pub from_square: (usize, usize),
     pub destination: (usize, usize),
     pub move_type: MoveType,
-    pub captures: Option<(usize, usize)>,
-    pub dest_threatened: bool,
-    pub dest_defended: bool,
+    pub captures: Option<(usize, usize)>
 }
 
 impl PartialEq for ChessMove {
