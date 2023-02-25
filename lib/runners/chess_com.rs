@@ -90,6 +90,7 @@ impl Runner for ChessComGame {
             }
             if self.current_turn == Side::Black {
                 self.turn_number = self.turn_number + 1;
+                eprintln!("We're now on turn {}", self.turn_number);
             }
         }
     }
