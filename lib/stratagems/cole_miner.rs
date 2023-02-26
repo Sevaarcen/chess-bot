@@ -16,6 +16,7 @@ struct PlannedMoveSequence {
     move_list: Vec<Option<ChessMove>>
 }
 
+#[allow(dead_code)]
 #[derive(Debug)]
 struct DetailedMove {
     chess_move: ChessMove,
@@ -24,15 +25,13 @@ struct DetailedMove {
     is_hanging: bool,
     hangs_piece: bool,
     causes_check: bool,
-    material_gain: i64,
+    victory: bool,
     capture_materials: usize,
     total_hanging_materials: i64,
     pre_num_threats: usize,
     post_num_threats: usize,
     pre_num_defends: usize,
     post_num_defends: usize,
-    // pre_highest_threat: Option<usize>,
-    // post_highest_threat:Option< usize>,
     pre_lowest_threatener: Option<usize>,
     post_lowest_threatener: Option<usize>,
     king_distance: usize,
@@ -71,7 +70,9 @@ impl From<&str> for PlannedMoveSequence {
 
 lazy_static! {
     static ref WHITE_PLANNED_OPENINGS: Vec<PlannedMoveSequence> = vec![
-        PlannedMoveSequence::from("e2->e4")  // no previous moves
+        PlannedMoveSequence::from("e2->e4,e7->e5,c2->c3,any,d2->d4"),  // no previous moves
+        PlannedMoveSequence::from("e2->e4,d7->d5,f2->f3"),
+        PlannedMoveSequence::from("e2->e4,d7->d5,d2->d3,f5->e4,d3->e4,any,f2->f3"),
     ];
     static ref BLACK_PLANNED_OPENINGS:Vec<PlannedMoveSequence> = vec![
         PlannedMoveSequence::from("e2->e4,e7->e6,e4->e5,f7->f6"),
@@ -201,10 +202,7 @@ impl ColeMiner {
                     is_hanging: !threats.is_empty() && defends.is_empty(),
                     hangs_piece: !post_threats.is_empty() && post_defends.is_empty(),
                     causes_check: eval_board.is_checked(!self.player_side),
-                    material_gain: match m.captures {
-                        Some(cap) => board_state.get_square_by_position(cap).unwrap().get_material() as i64 - piece.get_material() as i64,
-                        None => 0
-                    },
+                    victory: eval_board.is_game_over(self.player_side).is_some(),
                     capture_materials: match m.captures {
                         Some(cap) => board_state.get_square_by_position(cap).unwrap().get_material(),
                         None => 0
@@ -246,10 +244,16 @@ impl ColeMiner {
         //let pre_threatened_mat_diff = the_move.pre_lowest_threatener.unwrap_or(the_move.piece_materials) as f64 - the_move.piece_materials as f64;
         let post_threatened_mat_diff = the_move.post_lowest_threatener.unwrap_or(the_move.piece_materials) as f64 - the_move.piece_materials as f64;
 
+        let material_gain = if the_move.post_num_threats != 0 {
+            the_move.capture_materials as i64 - the_move.piece_materials as i64
+        } else {
+            the_move.capture_materials as i64
+        };
+
         let specific_move_bias = match the_move.chess_move.move_type {
             MoveType::DoubleAdvance => 0.25,
             MoveType::Castle => 2.50,
-            MoveType::Promotion => 5.0,
+            MoveType::Promotion => 5.00,
             _ => 0.00
         };
 
@@ -265,15 +269,16 @@ impl ColeMiner {
         // If you're wondering where these numbers came from... I made them up and they're not based on any concrete methodology
         let score: f64 = (num_towards_row as f64 * 2.50)  // Encourage advancing towards opponent side of board
                        + (the_move.king_distance_change as f64 * 5.00)  // Encourage moving towards the king
-                       + (the_move.material_gain as f64 * 100.00)  // Encourage moves that result in material advantage, discourage moves that result in material loss
-                       + (the_move.capture_materials as f64)  // Encourage trades
-                       + (the_move.total_hanging_materials as f64 * -35.00)  // Discourage leaving pieces hanging, even if not the active piece
+                       + (material_gain as f64 * 100.00)  // Encourage moves that result in material advantage, discourage moves that result in material loss
+                       + (the_move.capture_materials as f64 * 25.00)  // Encourage trades
+                       + (the_move.total_hanging_materials as f64 * -15.00)  // Discourage leaving pieces hanging, even if not the active piece
                        + (the_move.post_num_threats as f64 * 4.50)  // Encourage threatening as much as possible
                        + (post_threatened_mat_diff * 5.50 * ((the_move.post_num_defends > 0) as i32) as f64)  // Encourage adding new threats, but don't discourage removing threats
                        + ((-30 * the_move.hangs_piece as i32) as f64 * the_move.piece_materials as f64)  // Discourage hanging pieces
                        + (25 * the_move.is_hanging as i32) as f64  // Encourage moving hanging pieces
                        + (-30 * is_undo_move as i32) as f64  // Discourage repetition
-                       + (50 * (the_move.causes_check as i32)) as f64  // Encourage checking
+                       + (10 * (the_move.causes_check as i32)) as f64  // Encourage checking
+                       + (999_999 * (the_move.victory as i32)) as f64  // Highly encourage winning... not rocket science here.
                        + specific_move_bias  // Encourage certain move types
                        + specific_piece_bias  // Encourage certain pieces to move over other types
                        + rand::random::<f64>();  // w/ random noise to prevent consistent repetition

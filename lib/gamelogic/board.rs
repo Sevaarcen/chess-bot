@@ -15,6 +15,7 @@ use super::name_to_index_pair;
 use super::pieces::{ChessPiece, PieceType};
 
 use colored::*;
+use itertools::Itertools;
 
 #[derive(Clone, Debug)]
 pub struct ChessBoard {
@@ -97,8 +98,138 @@ impl ChessBoard {
         }
     }
 
+    /// https://en.wikipedia.org/wiki/Forsyth%E2%80%93Edwards_Notation
+    /// https://www.chess.com/terms/fen-chess
     pub fn new_from_forsyth_edwards(fen_string: String) -> Result<Self, ChessError> {
-        todo!()
+        //
+        // Split and validate FEN string that it matches the basic expected format.
+        //
+        let fen_string_split = fen_string.split(" ").collect_vec();
+        if fen_string_split.len() != 6 {
+            return Err(ChessError::InvalidState(format!("FEN string must have all 6 components, only had {}: {}", fen_string_split.len(), fen_string)));
+        }
+        // Make sure that no substring portion is empty. All must have values or be '-'
+        if fen_string_split.iter().find(|substr| substr.is_empty()).is_some() {
+            return Err(ChessError::InvalidState(format!("FEN string contains an empty substring, which is invalid '{}': {:?}", fen_string, fen_string_split)));
+        }
+
+        //
+        // Setup blank board and all state info set to assume false (different than standard Default)
+        //
+        let mut squares: [[Option<ChessPiece>; 8]; 8] = Default::default();
+        let mut state = BoardStateFlags {
+            white_castle_queenside: false,
+            white_castle_kingside: false,
+            black_castle_queenside: false,
+            black_castle_kingside: false,
+            en_passant_column: None,
+            current_turn: Side::White,
+        };
+
+        //
+        // Parse out the position of all the pieces from the 1st FEN substring
+        //
+        let rows_str = fen_string_split[0].split("/").collect_vec();
+        if rows_str.len() != 8 {
+            return Err(ChessError::InvalidState(format!("FEN string does not contain 8 rows of position info only had {}: {}", rows_str.len(), fen_string)));
+        }
+
+        let mut cur_row = 7;
+        for row_str in rows_str {
+            let mut cur_col = 0;
+            for char in row_str.chars() {
+                // validate that the columns don't go past 7 (starting from index 0)
+                if cur_col > 7 {
+                    return Err(ChessError::InvalidState(format!("FEN position string has more than 8 squares worth of piece info: {}", row_str)));
+                }
+                // check if it's a number character for empty square(s)
+                if char as usize >= 48 && char as usize <= 57 {
+                    let num_empty = char as usize - 48;
+                    if cur_col + num_empty > 8 {
+                        return Err(ChessError::InvalidState(format!("FEN position string says there's more empty squares than possibly exist '{}': {}", char, row_str)));
+                    }
+                    cur_col = cur_col + num_empty;
+                    continue;
+                }
+                // determine current side, black pieces are lowercase
+                let piece_side = if char as usize >= 97 {
+                    Side::Black
+                } else {
+                    Side::White
+                };
+                // determine the type of piece by which character it is
+                let piece_type = match char.to_lowercase().nth(0).expect("FEN string contained invalid character that could not be converted to lowercase") {
+                    'p' => PieceType::Pawn,
+                    'r' => PieceType::Rook,
+                    'n' => PieceType::Knight,
+                    'b' => PieceType::Bishop,
+                    'k' => PieceType::King,
+                    'q' => PieceType::Queen,
+                    _ => return Err(ChessError::InvalidState(format!("FEN could not be parsed because character isn't recognized '{}': {}", char, fen_string)))
+                };
+                // set the square to the given chess piece
+                squares[cur_col][cur_row] = Some(ChessPiece { position: (cur_col, cur_row), side: piece_side, piece_type: piece_type });
+                cur_col = cur_col + 1;
+            }
+            // As long as we're not at row 0, subtract -1 as we start at the last row and work backwards with FEN notation
+            if cur_row != 0 {
+                cur_row = cur_row - 1;
+            }
+        }
+
+        //
+        // Parse out the current active color from the 2nd FEN substring
+        //
+        let active_color = fen_string_split[1];
+        if active_color.len() != 1 {
+            return Err(ChessError::InvalidState(format!("FEN string active color substring isn't a single character '{}': {}", active_color, fen_string)));
+        }
+        let active_side = match active_color.chars().nth(0).unwrap() {
+            'w' => Side::White,
+            'b' => Side::Black,
+            _ => return Err(ChessError::InvalidState(format!("FEN string active color is invalid '{}': {}", active_color, fen_string)))
+        };
+        state.current_turn = active_side;
+
+        //
+        // Parse out the castling rights from the 3rd FEN substring
+        //
+        let castling_rights = fen_string_split[2];
+        for char in castling_rights.chars() {
+            match char {
+                'K' => state.white_castle_kingside = true,
+                'Q' => state.white_castle_queenside = true,
+                'k' => state.black_castle_kingside = true,
+                'q' => state.black_castle_queenside = true,
+                _ => return Err(ChessError::InvalidState(format!("FEN string castling rights has invalid character '{}': {}", char, fen_string)))
+            }
+        }
+
+        //
+        // Parse out the EnPassant information from the 4th FEN substring
+        //
+        let en_passant_substr = fen_string_split[3];
+        if en_passant_substr != "-" {
+            let en_passant_square = match name_to_index_pair(en_passant_substr.to_string()) {
+                Ok(s) => s,
+                Err(_) => return Err(ChessError::InvalidState(format!("FEN string EnPassant target square is invalid '{}': {}", en_passant_substr, fen_string))),
+            };
+            state.en_passant_column = Some(en_passant_square.0);
+        }
+
+        //
+        // Parse out halfmove and fullmove clock numbers from the 5th and 5th FEN substrings
+        // Even though these aren't used, we want to validate that FEN strings are valid
+        //
+        let _halfmove_clock = fen_string_split[4].parse::<usize>().map_err(|e| ChessError::InvalidState(format!("FEN string halfmove clock cannot be parsed as a number '{}': {}", fen_string_split[4], e.to_string())))?;
+        let _fullmove_clock = fen_string_split[5].parse::<usize>().map_err(|e| ChessError::InvalidState(format!("FEN string fullmove clock cannot be parsed as a number '{}': {}", fen_string_split[5], e.to_string())))?;
+
+        Ok(ChessBoard {
+            squares,
+            state,
+            board_state_counts: HashMap::new(),
+            move_list: Vec::new()
+        })
     }
 
     pub fn to_forsyth_edwards(self: &Self) -> String {
@@ -205,8 +336,8 @@ impl ChessBoard {
         match chess_move.move_type {
             MoveType::EnPassant => {
                 let captured = match piece.side {
-                    Side::White => self.get_square_by_index(dest_col, dest_row - 1).expect(format!("Tried to perform en passant capture at position but piece didn't exist: {:#?}", chess_move).as_str()),
-                    Side::Black => self.get_square_by_index(dest_col, dest_row + 1).expect(format!("Tried to perform en passant capture at position but piece didn't exist: {:#?}", chess_move).as_str()),
+                    Side::White => self.get_square_by_index(dest_col, dest_row - 1).expect(format!("Tried to perform en passant capture at position but piece didn't exist: {:#?}\n{:#?}", chess_move, self.state).as_str()),
+                    Side::Black => self.get_square_by_index(dest_col, dest_row + 1).expect(format!("Tried to perform en passant capture at position but piece didn't exist: {:#?}\n{:#?}", chess_move, self.state).as_str()),
                 };
                 self.squares[captured.position.0][captured.position.1] = None;
                 self.state.en_passant_column = None;
@@ -230,6 +361,7 @@ impl ChessBoard {
                     move_type: MoveType::Standard,
                     captures: None
                 };
+                self.state.en_passant_column = None;
                 self.perform_move(&castle_move)?;
             },
             _ => {

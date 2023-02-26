@@ -1,8 +1,6 @@
 use core::fmt;
 use std::error::Error;
 
-use self::board::ChessBoard;
-
 pub mod board;
 pub mod pieces;
 
@@ -23,6 +21,7 @@ impl Default for Side {
 pub enum ChessError {
     InvalidArgument(String),
     InvalidMove(String),
+    InvalidState(String)
 }
 
 impl Error for ChessError {}
@@ -60,12 +59,6 @@ impl PartialEq for ChessMove {
 
 impl Eq for ChessMove {}
 
-impl ChessMove {
-    pub fn from_notation(board: &ChessBoard, move_notation: String) -> Result<ChessMove, ChessError> {
-        todo!()
-    }
-}
-
 #[derive(Debug)]
 pub enum GameEnd {
     WhiteVictory(String),
@@ -73,6 +66,7 @@ pub enum GameEnd {
     Draw(String),
 }
 
+/// For a given square, e.g. `a2`
 pub fn name_to_index_pair(square_name: String) -> Result<(usize, usize), ChessError> {
     if square_name.len() != 2 {
         return Err(ChessError::InvalidArgument(format!(
