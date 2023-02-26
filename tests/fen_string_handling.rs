@@ -15,7 +15,7 @@ fn default_board_fen_correct_conversion() {
 }
 
 #[test]
-fn valid_fen_string_1() {
+fn technically_valid_fen_string() {
     let board = ChessBoard::from_forsyth_edwards("8/8/8/8/8/8/8/8 w - - 0 0".to_string());
     assert!(board.is_ok())
 }
