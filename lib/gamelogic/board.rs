@@ -50,6 +50,7 @@ impl Default for BoardStateFlags {
 
 
 impl ChessBoard {
+    /// Create a ChessBoard using the standard setup.
     pub fn new() -> Self {
         // An Image showing a nice view of the Initial Setup: https://www.regencychess.co.uk/images/how-to-set-up-a-chessboard/how-to-set-up-a-chessboard-7.jpg
         // start with an empty board
@@ -89,6 +90,7 @@ impl ChessBoard {
         }
     }
 
+    /// Create a Board object with the specified squares.
     pub fn new_with_squares(setup: [[Option<ChessPiece>; 8]; 8]) -> Self {
         ChessBoard {
             squares: setup,  // 2d array of columns and rows
@@ -98,9 +100,10 @@ impl ChessBoard {
         }
     }
 
+    /// Parses a FEN string into a Board. It doesn't validate that the pieces make sense, e.g. that there's a King for each side.
     /// https://en.wikipedia.org/wiki/Forsyth%E2%80%93Edwards_Notation
     /// https://www.chess.com/terms/fen-chess
-    pub fn new_from_forsyth_edwards(fen_string: String) -> Result<Self, ChessError> {
+    pub fn from_forsyth_edwards(fen_string: String) -> Result<Self, ChessError> {
         //
         // Split and validate FEN string that it matches the basic expected format.
         //
@@ -195,13 +198,15 @@ impl ChessBoard {
         // Parse out the castling rights from the 3rd FEN substring
         //
         let castling_rights = fen_string_split[2];
-        for char in castling_rights.chars() {
-            match char {
-                'K' => state.white_castle_kingside = true,
-                'Q' => state.white_castle_queenside = true,
-                'k' => state.black_castle_kingside = true,
-                'q' => state.black_castle_queenside = true,
-                _ => return Err(ChessError::InvalidState(format!("FEN string castling rights has invalid character '{}': {}", char, fen_string)))
+        if castling_rights != "-" {
+            for char in castling_rights.chars() {
+                match char {
+                    'K' => state.white_castle_kingside = true,
+                    'Q' => state.white_castle_queenside = true,
+                    'k' => state.black_castle_kingside = true,
+                    'q' => state.black_castle_queenside = true,
+                    _ => return Err(ChessError::InvalidState(format!("FEN string castling rights has invalid character '{}': {}", char, fen_string)))
+                }
             }
         }
 
@@ -232,6 +237,7 @@ impl ChessBoard {
         })
     }
 
+    /// Output a Forsyth-Edwards string of the current board state. Always uses 0 for the halfmove and fullmove clock.
     pub fn to_forsyth_edwards(self: &Self) -> String {
         // figure out where all the pieces are
         let mut piece_placement = String::new();

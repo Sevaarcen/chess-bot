@@ -73,6 +73,8 @@ lazy_static! {
         PlannedMoveSequence::from("e2->e4,e7->e5,c2->c3,any,d2->d4"),  // no previous moves
         PlannedMoveSequence::from("e2->e4,d7->d5,f2->f3"),
         PlannedMoveSequence::from("e2->e4,d7->d5,d2->d3,f5->e4,d3->e4,any,f2->f3"),
+        PlannedMoveSequence::from("e2->e4,g8->f6,d2->d3"),
+        PlannedMoveSequence::from("e2->e4,any,d1->e2"),
     ];
     static ref BLACK_PLANNED_OPENINGS:Vec<PlannedMoveSequence> = vec![
         PlannedMoveSequence::from("e2->e4,e7->e6,e4->e5,f7->f6"),
@@ -182,12 +184,21 @@ impl ColeMiner {
                 let post_threats = eval_board.get_square_threats(!self.player_side, m.destination);
                 let post_defends = eval_board.get_square_threats(self.player_side, m.destination);
 
+                let pre_lowest_threatener = threats.iter().map(|p| p.get_material()).sorted().last();
+                let post_lowest_threatener = post_threats.iter().map(|p| p.get_material()).sorted().last();
+
                 let total_hanging_materials = board_state.get_all_pieces(self.player_side)
                     .iter()
                     .find( |piece| {
                         let p_threats = eval_board.get_square_threats(!self.player_side, piece.position);
                         let p_defends = eval_board.get_square_threats(self.player_side, piece.position);
-                        !p_threats.is_empty() && p_defends.is_empty()
+                        if p_threats.is_empty() {
+                            false
+                        } else if p_defends.is_empty() {
+                            true
+                        } else {
+                            p_threats.iter().map(|p| p.get_material()).sorted().last().unwrap() > piece.get_material()
+                        }
                     })
                     .map(|piece| {
                         piece.get_material() as i64
@@ -195,14 +206,30 @@ impl ColeMiner {
                     .iter()
                     .sum::<i64>();
 
+                let is_hanging = if threats.is_empty() {
+                    false
+                } else if defends.is_empty() {
+                    true
+                } else {
+                    pre_lowest_threatener.unwrap() > piece.get_material()
+                };
+
+                let hangs_piece = if post_threats.is_empty() {
+                    false  // not hanging if there's no threats
+                } else if post_defends.is_empty() {
+                    true  // hangs if there is at least 1 threat and no defenders
+                } else {
+                    post_lowest_threatener.unwrap() > piece.get_material()  // also hanging if the threatener is cheaper than what they're threatening
+                };
+
                 detailed_moves.push(DetailedMove {
                     chess_move: m.clone(),
                     piece_type: piece.piece_type,
                     piece_materials: piece.get_material(),
-                    is_hanging: !threats.is_empty() && defends.is_empty(),
-                    hangs_piece: !post_threats.is_empty() && post_defends.is_empty(),
+                    is_hanging,
+                    hangs_piece,
                     causes_check: eval_board.is_checked(!self.player_side),
-                    victory: eval_board.is_game_over(self.player_side).is_some(),
+                    victory: eval_board.is_game_over(!self.player_side).is_some(),
                     capture_materials: match m.captures {
                         Some(cap) => board_state.get_square_by_position(cap).unwrap().get_material(),
                         None => 0
@@ -214,8 +241,8 @@ impl ColeMiner {
                     post_num_defends: post_defends.len(),
                     // pre_highest_threat: threats.iter().map(|p| p.get_material()).sorted().last(),
                     // post_highest_threat: todo!(),
-                    pre_lowest_threatener: threats.iter().map(|p| p.get_material()).sorted().last(),
-                    post_lowest_threatener: post_threats.iter().map(|p| p.get_material()).sorted().last(),
+                    pre_lowest_threatener,
+                    post_lowest_threatener,
                     king_distance: get_distance(m.destination, opponent_king.position),
                     king_distance_change: get_distance(m.from_square, opponent_king.position) as i64 - get_distance(m.destination, opponent_king.position) as i64,
                 })
@@ -253,7 +280,7 @@ impl ColeMiner {
         let specific_move_bias = match the_move.chess_move.move_type {
             MoveType::DoubleAdvance => 0.25,
             MoveType::Castle => 2.50,
-            MoveType::Promotion => 5.00,
+            MoveType::Promotion => 7.50,
             _ => 0.00
         };
 
@@ -277,14 +304,13 @@ impl ColeMiner {
                        + ((-30 * the_move.hangs_piece as i32) as f64 * the_move.piece_materials as f64)  // Discourage hanging pieces
                        + (25 * the_move.is_hanging as i32) as f64  // Encourage moving hanging pieces
                        + (-30 * is_undo_move as i32) as f64  // Discourage repetition
-                       + (10 * (the_move.causes_check as i32)) as f64  // Encourage checking
+                       + (20 * (the_move.causes_check as i32)) as f64  // Encourage checking
                        + (999_999 * (the_move.victory as i32)) as f64  // Highly encourage winning... not rocket science here.
                        + specific_move_bias  // Encourage certain move types
                        + specific_piece_bias  // Encourage certain pieces to move over other types
                        + rand::random::<f64>();  // w/ random noise to prevent consistent repetition
 
-        //eprintln!("Scored from {:?} to {:?} as {}: {:?}", the_move.chess_move.from_square, the_move.chess_move.destination, score, the_move);
-        eprintln!("[DEBUG] Score of {} for move {:?}", score, the_move);
+        // eprintln!("[DEBUG] Score of {} for move {:?}", score, the_move);
 
         // Convert to i64 so we can order them...
         (score * 100.0) as i64

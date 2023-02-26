@@ -1,6 +1,6 @@
 # chess-bot
 
-A Chess Bot program entered into a friendly chess bot tournament.
+A Chess Bot program made for a friendly tournament where every participant has to create a chess bot from scratch to compete via Chess.com. This is a hobby project for fun, and to improve ability to build more complex Rust programs.
 
 
 # Strategems
@@ -12,7 +12,7 @@ __Available Strategems__
 | Strategem     | Description
 | ---           | ---
 | RandomAggro   | Always takes a move that captures. If multiple captures are possible, the opponent piece with the highest material capture is taken, regardless of other factors. If no capture is available, a random move is taken. This Bot is unable to win via checkmate (unless it's by sheer luck), and is worse than Martin but less passive.
-
+| ColeMiner     | Balanced low-elo bot that tries to maintain a decent defensive structure while attacking obvious weaknesses.
 
 # Runners
 
