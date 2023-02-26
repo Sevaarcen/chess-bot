@@ -143,7 +143,6 @@ fn move_would_cause_self_check(board: &ChessBoard, the_move: &ChessMove) -> bool
     board_copy.is_checked(piece.side)
 }
 
-
 fn get_pawn_moves(piece: &ChessPiece, board: &ChessBoard) -> Vec<ChessMove> {
     let mut possible_moves = Vec::new();
     let current_col = piece.position.0;
@@ -914,7 +913,7 @@ fn get_king_moves(piece: &ChessPiece, board: &ChessBoard) -> Vec<ChessMove> {
                     if can_castle {
                         possible_moves.push(ChessMove {
                             from_square: (current_col, current_row),
-                            destination: (1, current_row),
+                            destination: (2, current_row),
                             move_type: MoveType::Castle,
                             captures: None
                         });

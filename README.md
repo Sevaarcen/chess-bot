@@ -2,6 +2,8 @@
 
 A Chess Bot program made for a friendly tournament where every participant has to create a chess bot from scratch to compete via Chess.com. This is a hobby project for fun, and to improve ability to build more complex Rust programs.
 
+Using this in rated Chess.com games may result in a ban. Only use against knowingly consenting opponents and comply with all terms of service, etc.
+
 
 # Strategems
 
@@ -22,7 +24,7 @@ __Available Runners__
 | Runner        | Description
 | ---           | ---
 | LocalGame     | Runs a CLI game of chess where the external source is user input on the command line. Uses the Unicode chess characters and console coloring which may not work with all fonts nor terminals. VSCode terminal works well.
-| ChessCom      | Uses your session token to open up and interact with chess.com using GeckoDriver.
+| ChessCom      | Uses your session token to open up and interact with chess.com using GeckoDriver. It assumes that the visualization is in a default configuration (e.g. helper annotations).
 
 
 ### ChessCom

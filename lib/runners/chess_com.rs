@@ -9,6 +9,9 @@ use thirtyfour_sync::{prelude::*, GenericWebDriver};
 use thirtyfour_sync::common::cookie::SameSite;
 use serde_json::json;
 
+// Used to control waiting for bot turn for webdriver.
+const WAIT_SECONDS: u64 = 600;
+const POLL_MILLIS: u64 = 250;
 
 pub struct ChessComGame {
     driver: GenericWebDriver<ReqwestDriverSync>,
@@ -18,7 +21,6 @@ pub struct ChessComGame {
     current_turn: Side,
     turn_number: usize
 }
-
 
 impl Runner for ChessComGame {
     fn initialize<T: Stratagem + 'static>(args: Vec<String>) -> Result<Self, RunnerError>
@@ -73,7 +75,6 @@ impl Runner for ChessComGame {
         })
     }
 
-
     fn run_game(self: &mut Self) -> Result<GameEnd, RunnerError> {
         loop {
             if let Some(v) = self.check_victory() {
@@ -94,7 +95,6 @@ impl Runner for ChessComGame {
             }
         }
     }
-
 
     fn refresh_state(self: &mut Self) -> Result<(), RunnerError> {
         let chess_board_element = self.driver.find_element(By::Tag("chess-board")).unwrap();
@@ -192,23 +192,21 @@ impl Runner for ChessComGame {
     }
 }
 
-
 impl ChessComGame {
     fn wait_for_player_turn(self: &Self) -> () {
         eprintln!("Waiting for player turn");
-        // TODO re-evaluate wait duration -- may need to be quite a bit longer (5+ minutes)
         match self.player_side {
             Side::White => {
                 let data_ply_num = self.turn_number * 2;
                 if data_ply_num != 0 {
                     eprintln!("Waiting for data play number {}", data_ply_num);
-                    self.driver.query(By::ClassName("black.node.selected")).with_attribute("data-ply", format!("{}", data_ply_num)).wait(Duration::from_secs(60), Duration::from_millis(250)).exists().unwrap();
+                    self.driver.query(By::ClassName("black.node.selected")).with_attribute("data-ply", format!("{}", data_ply_num)).wait(Duration::from_secs(WAIT_SECONDS), Duration::from_millis(POLL_MILLIS)).exists().unwrap();
                 }
             },
             Side::Black => {
                 let data_ply_num = self.turn_number * 2 + 1;
                 eprintln!("Waiting for data play number {}", data_ply_num);
-                self.driver.query(By::ClassName("white.node.selected")).with_attribute("data-ply", format!("{}", data_ply_num)).wait(Duration::from_secs(60), Duration::from_millis(250)).exists().unwrap();
+                self.driver.query(By::ClassName("white.node.selected")).with_attribute("data-ply", format!("{}", data_ply_num)).wait(Duration::from_secs(WAIT_SECONDS), Duration::from_millis(POLL_MILLIS)).exists().unwrap();
             },
         };
         eprintln!("Finsihed waiting for player turn");

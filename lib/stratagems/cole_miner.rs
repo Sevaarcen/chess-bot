@@ -197,7 +197,7 @@ impl ColeMiner {
                         } else if p_defends.is_empty() {
                             true
                         } else {
-                            p_threats.iter().map(|p| p.get_material()).sorted().last().unwrap() > piece.get_material()
+                            p_threats.iter().map(|p| p.get_material()).sorted().last().unwrap() < piece.get_material()
                         }
                     })
                     .map(|piece| {
@@ -211,7 +211,7 @@ impl ColeMiner {
                 } else if defends.is_empty() {
                     true
                 } else {
-                    pre_lowest_threatener.unwrap() > piece.get_material()
+                    pre_lowest_threatener.unwrap() < piece.get_material()
                 };
 
                 let hangs_piece = if post_threats.is_empty() {
@@ -219,7 +219,7 @@ impl ColeMiner {
                 } else if post_defends.is_empty() {
                     true  // hangs if there is at least 1 threat and no defenders
                 } else {
-                    post_lowest_threatener.unwrap() > piece.get_material()  // also hanging if the threatener is cheaper than what they're threatening
+                    post_lowest_threatener.unwrap() < piece.get_material()  // also hanging if the threatener is cheaper than what they're threatening
                 };
 
                 detailed_moves.push(DetailedMove {

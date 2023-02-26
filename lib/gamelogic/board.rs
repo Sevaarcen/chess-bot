@@ -357,8 +357,8 @@ impl ChessBoard {
             },
             MoveType::Castle => {
                 // the normal move of the king will be performed, but then we want to create a move for the rook and move it too
-                let (castle_from_col, castle_dest_col) = match dest_col == 1 {
-                    true => (0, 2),
+                let (castle_from_col, castle_dest_col) = match dest_col == 2 {
+                    true => (0, 3),
                     false => (7, 5)
                 };
                 let castle_move = ChessMove {
