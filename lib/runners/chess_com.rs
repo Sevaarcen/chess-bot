@@ -122,13 +122,14 @@ impl Runner for ChessComGame {
         };
 
         eprintln!("Opponent performed move {:?} to {:?}", index_pair_to_name(from_square.0, from_square.1).unwrap(), index_pair_to_name(to_square.0, to_square.1).unwrap());
-        eprintln!("FEN after opponent move: {} (hash: {})", self.board.to_forsyth_edwards(), self.board.get_board_state_hash());
+        eprintln!("FEN before opponent move: {} (hash: {})", self.board.to_forsyth_edwards(), self.board.get_board_state_hash());
         let moved_piece = self.board.get_square_by_index(from_square.0, from_square.1).expect("Uhhh... the piece that's supposed to move doesn't exist");
 
         let the_move = moved_piece.get_specific_move(&self.board, to_square).expect("Uhhh... the move that the opponent performed isn't in the list of valid moves.");
+        println!("Bot move: {:#?}", the_move);
         self.board.perform_move_and_record(&the_move).expect("Unable to perform opponent move");
 
-        eprintln!("FEN after bot move: {} (hash: {})", self.board.to_forsyth_edwards(), self.board.get_board_state_hash());
+        eprintln!("FEN after opponent move: {} (hash: {})", self.board.to_forsyth_edwards(), self.board.get_board_state_hash());
         println!("{}", self.board);
 
         self.current_turn = !self.current_turn;
@@ -181,6 +182,7 @@ impl Runner for ChessComGame {
         self.board.perform_move_and_record(&bot_move).expect("Could not perform bot move");
         self.current_turn = !self.current_turn;
 
+        eprintln!("FEN after bot move: {} (hash: {})", self.board.to_forsyth_edwards(), self.board.get_board_state_hash());
         println!("{}", self.board);
 
         Ok(()) // If we've gotten this far, no errors
@@ -209,7 +211,7 @@ impl ChessComGame {
                 self.driver.query(By::ClassName("white.node.selected")).with_attribute("data-ply", format!("{}", data_ply_num)).wait(Duration::from_secs(WAIT_SECONDS), Duration::from_millis(POLL_MILLIS)).exists().unwrap();
             },
         };
-        eprintln!("Finsihed waiting for player turn");
+        eprintln!("Finished waiting for player turn");
     }
 }
 

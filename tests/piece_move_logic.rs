@@ -143,9 +143,3 @@ fn white_pawn_knight_capture() {
     assert_eq!(target_square_piece.piece_type, PieceType::Pawn);
     assert_eq!(target_square_piece.side, Side::White);
 }
-
-// TODO more tests
-// move for all pieces
-// move and captures at very edge of board boundaries
-// castling
-// promotion

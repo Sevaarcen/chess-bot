@@ -333,17 +333,16 @@ impl ChessBoard {
 
     pub fn perform_move(self: &mut Self, chess_move: &ChessMove) -> Result<(), ()> {
         let current_position = chess_move.from_square;
-        let mut piece = self.get_square_by_index(current_position.0, current_position.1).expect(format!("Tried to get a piece at position {:?} but piece didn't exist", current_position).as_str());
+        let mut piece = self.get_square_by_index(current_position.0, current_position.1).expect(format!("Tried to get a piece at position {:?} but piece didn't exist: {:?}", current_position, chess_move).as_str());
         let dest_col = chess_move.destination.0;
         let dest_row = chess_move.destination.1;
-
 
         // handle special moves
         match chess_move.move_type {
             MoveType::EnPassant => {
                 let captured = match piece.side {
-                    Side::White => self.get_square_by_index(dest_col, dest_row - 1).expect(format!("Tried to perform en passant capture at position but piece didn't exist: {:#?}\n{:#?}", chess_move, self.state).as_str()),
-                    Side::Black => self.get_square_by_index(dest_col, dest_row + 1).expect(format!("Tried to perform en passant capture at position but piece didn't exist: {:#?}\n{:#?}", chess_move, self.state).as_str()),
+                    Side::White => self.get_square_by_index(dest_col, dest_row - 1).expect(format!("Tried to perform en passant capture at position but piece didn't exist: {}\n{:#?}\n{:#?}", self.to_forsyth_edwards(), chess_move, self.state).as_str()),
+                    Side::Black => self.get_square_by_index(dest_col, dest_row + 1).expect(format!("Tried to perform en passant capture at position but piece didn't exist: {}\n{:#?}\n{:#?}", self.to_forsyth_edwards(), chess_move, self.state).as_str()),
                 };
                 self.squares[captured.position.0][captured.position.1] = None;
                 self.state.en_passant_column = None;
@@ -356,6 +355,7 @@ impl ChessBoard {
                 self.state.en_passant_column = None;
             },
             MoveType::Castle => {
+                self.state.en_passant_column = None;
                 // the normal move of the king will be performed, but then we want to create a move for the rook and move it too
                 let (castle_from_col, castle_dest_col) = match dest_col == 2 {
                     true => (0, 3),
@@ -367,7 +367,6 @@ impl ChessBoard {
                     move_type: MoveType::Standard,
                     captures: None
                 };
-                self.state.en_passant_column = None;
                 self.perform_move(&castle_move)?;
             },
             _ => {
@@ -508,11 +507,13 @@ impl ChessBoard {
     }
 
     pub fn get_all_moves(self: &Self, side: Side) -> Vec<ChessMove> {
-        let mut moves = Vec::new();
-        for piece in self.get_all_pieces(side) {
-            moves.append(&mut piece.get_moves(&self));
+        let mut all_moves = Vec::new();
+        let all_pieces = self.get_all_pieces(side);
+        for piece in all_pieces {
+            let mut moves = piece.get_moves(&self);
+            all_moves.append(&mut moves);
         }
-        moves
+        all_moves
     }
 
     pub fn get_board_state_hash(self: &Self) -> u64 {
@@ -629,20 +630,20 @@ impl Display for ChessBoard {
                             }.blue(),
                             // to swap print style to non-unicode, comment out above and replace with below
                             // Side::White => match piece.piece_type {
-                            //     PieceType::Pawn => "wP",
-                            //     PieceType::Rook => "wR",
-                            //     PieceType::Knight => "wN",
-                            //     PieceType::Bishop => "wB",
-                            //     PieceType::Queen => "wQ",
-                            //     PieceType::King => "wK",
+                            //     PieceType::Pawn => "P ",
+                            //     PieceType::Rook => "R ",
+                            //     PieceType::Knight => "N ",
+                            //     PieceType::Bishop => "B ",
+                            //     PieceType::Queen => "Q ",
+                            //     PieceType::King => "K ",
                             // }.white(),
                             // Side::Black => match piece.piece_type {
-                            //     PieceType::Pawn => "bP",
-                            //     PieceType::Rook => "bR",
-                            //     PieceType::Knight => "bN",
-                            //     PieceType::Bishop => "bB",
-                            //     PieceType::Queen => "bQ",
-                            //     PieceType::King => "bK",
+                            //     PieceType::Pawn => "p ",
+                            //     PieceType::Rook => "r ",
+                            //     PieceType::Knight => "n ",
+                            //     PieceType::Bishop => "b ",
+                            //     PieceType::Queen => "q ",
+                            //     PieceType::King => "k ",
                             // }.blue(),
                         }
                     },

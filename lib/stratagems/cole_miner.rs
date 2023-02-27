@@ -1,6 +1,6 @@
 use itertools::Itertools;
 
-use crate::gamelogic::{board::ChessBoard, pieces::PieceType, ChessMove, name_to_index_pair, MoveType, Side};
+use crate::gamelogic::{board::ChessBoard, pieces::PieceType, ChessMove, name_to_index_pair, MoveType, Side, GameEnd};
 
 use super::Stratagem;
 
@@ -25,7 +25,7 @@ struct DetailedMove {
     is_hanging: bool,
     hangs_piece: bool,
     causes_check: bool,
-    victory: bool,
+    game_end: Option<GameEnd>,
     capture_materials: usize,
     total_hanging_materials: i64,
     pre_num_threats: usize,
@@ -36,6 +36,9 @@ struct DetailedMove {
     post_lowest_threatener: Option<usize>,
     king_distance: usize,
     king_distance_change: i64,
+    player_total_materials: usize,
+    opponent_total_materials: usize,
+    controlled_squares: usize,
 }
 
 impl From<&str> for PlannedMoveSequence {
@@ -70,11 +73,11 @@ impl From<&str> for PlannedMoveSequence {
 
 lazy_static! {
     static ref WHITE_PLANNED_OPENINGS: Vec<PlannedMoveSequence> = vec![
-        PlannedMoveSequence::from("e2->e4,e7->e5,c2->c3,any,d2->d4"),  // no previous moves
+        PlannedMoveSequence::from("e2->e4,e7->e5,c2->c3,any,d2->d4"),
         PlannedMoveSequence::from("e2->e4,d7->d5,f2->f3"),
         PlannedMoveSequence::from("e2->e4,d7->d5,d2->d3,f5->e4,d3->e4,any,f2->f3"),
         PlannedMoveSequence::from("e2->e4,g8->f6,d2->d3"),
-        PlannedMoveSequence::from("e2->e4,any,d1->e2"),
+        PlannedMoveSequence::from("e2->e4,any,d1->e2,any,d2->d3"),
     ];
     static ref BLACK_PLANNED_OPENINGS:Vec<PlannedMoveSequence> = vec![
         PlannedMoveSequence::from("e2->e4,e7->e6,e4->e5,f7->f6"),
@@ -180,7 +183,7 @@ impl ColeMiner {
 
             for m in piece_moves {
                 let mut eval_board = board_state.clone();
-                eval_board.perform_move(&m).unwrap();
+                eval_board.perform_move_and_record(&m).unwrap();
                 let post_threats = eval_board.get_square_threats(!self.player_side, m.destination);
                 let post_defends = eval_board.get_square_threats(self.player_side, m.destination);
 
@@ -229,7 +232,7 @@ impl ColeMiner {
                     is_hanging,
                     hangs_piece,
                     causes_check: eval_board.is_checked(!self.player_side),
-                    victory: eval_board.is_game_over(!self.player_side).is_some(),
+                    game_end: eval_board.is_game_over(!self.player_side),
                     capture_materials: match m.captures {
                         Some(cap) => board_state.get_square_by_position(cap).unwrap().get_material(),
                         None => 0
@@ -239,12 +242,13 @@ impl ColeMiner {
                     post_num_threats: post_threats.len(),
                     pre_num_defends: defends.len(),
                     post_num_defends: post_defends.len(),
-                    // pre_highest_threat: threats.iter().map(|p| p.get_material()).sorted().last(),
-                    // post_highest_threat: todo!(),
                     pre_lowest_threatener,
                     post_lowest_threatener,
                     king_distance: get_distance(m.destination, opponent_king.position),
                     king_distance_change: get_distance(m.from_square, opponent_king.position) as i64 - get_distance(m.destination, opponent_king.position) as i64,
+                    player_total_materials: board_state.get_total_materials(self.player_side),
+                    opponent_total_materials: board_state.get_total_materials(!self.player_side),
+                    controlled_squares: eval_board.get_threatened_map(self.player_side).len()
                 })
             }
         }
@@ -271,41 +275,92 @@ impl ColeMiner {
         //let pre_threatened_mat_diff = the_move.pre_lowest_threatener.unwrap_or(the_move.piece_materials) as f64 - the_move.piece_materials as f64;
         let post_threatened_mat_diff = the_move.post_lowest_threatener.unwrap_or(the_move.piece_materials) as f64 - the_move.piece_materials as f64;
 
-        let material_gain = if the_move.post_num_threats != 0 {
-            the_move.capture_materials as i64 - the_move.piece_materials as i64
-        } else {
-            the_move.capture_materials as i64
+        let material_gain = match the_move.post_num_threats != 0 {
+            true => the_move.capture_materials as i64 - the_move.piece_materials as i64,
+            false => the_move.capture_materials as i64,
+        };
+
+        let adjusted_total_hanging = match the_move.is_hanging {
+            true => the_move.total_hanging_materials - the_move.piece_materials as i64,
+            false => the_move.total_hanging_materials,
         };
 
         let specific_move_bias = match the_move.chess_move.move_type {
             MoveType::DoubleAdvance => 0.25,
-            MoveType::Castle => 2.50,
+            MoveType::Castle => 20.00,  // Higher number to overcome bias against moving King
             MoveType::Promotion => 7.50,
             _ => 0.00
         };
 
         let specific_piece_bias = match the_move.piece_type {
-            PieceType::Pawn => 0.00,
-            PieceType::Rook => 0.60,
-            PieceType::Knight => 0.50,
-            PieceType::Bishop => 0.40,
-            PieceType::Queen => 0.75,
-            PieceType::King => -0.75  // Avoid moving the king for no reason
+            PieceType::Pawn => 0.025,
+            PieceType::Rook => {
+                // Avoid moving the Rook if that rook is still able to possibly castle in the future
+                match self.player_side {
+                    Side::White => {
+                        match (the_move.chess_move.from_square, board_state.state.white_castle_kingside, board_state.state.white_castle_queenside) {
+                            ((0,0), _, true) => -5.00,
+                            ((7,0), true, _) => -5.00,
+                            _ => 0.20
+                        }
+                    },
+                    Side::Black => {
+                        match (the_move.chess_move.from_square, board_state.state.black_castle_kingside, board_state.state.black_castle_queenside) {
+                            ((0,7), _, true) => -5.00,
+                            ((7,7), true, _) => -5.00,
+                            _ => 0.20
+                        }
+                    }
+                }
+            },
+            PieceType::Knight => 0.40,
+            PieceType::Bishop => 0.25,
+            PieceType::Queen => 0.30,
+            PieceType::King => {
+                // Avoid moving the king for no reason, and especially moving in a way which disabled castling
+                match self.player_side {
+                    Side::White => match board_state.state.white_castle_kingside || board_state.state.white_castle_queenside {
+                        true => -10.00,
+                        false => -0.75,
+                    }
+                    Side::Black => match board_state.state.black_castle_kingside || board_state.state.black_castle_queenside {
+                        true => -10.00,
+                        false => -0.75,
+                    }
+                }
+            }
+        };
+
+        let game_end_bias = match the_move.game_end {
+            Some(ref ending) => {
+                match ending {
+                    GameEnd::WhiteVictory(_) => 999_999, // because of how the move is calculated, our move won't end in a victory unless we're that side
+                    GameEnd::BlackVictory(_) => 999_999,
+                    GameEnd::Draw(_) => match the_move.player_total_materials > the_move.opponent_total_materials {
+                        true => -1_000,  // avoid drawing while winning
+                        false => 1_000,  // if losing, try drawing
+                    },
+                }
+            },
+            None => 0,
         };
 
         // If you're wondering where these numbers came from... I made them up and they're not based on any concrete methodology
-        let score: f64 = (num_towards_row as f64 * 2.50)  // Encourage advancing towards opponent side of board
+        let score: f64 = ((num_towards_row * ((the_move.piece_type == PieceType::Pawn) as i64) + 1) as f64 * 4.25)  // Encourage advancing towards opponent side of board, doubly so for pawns
                        + (the_move.king_distance_change as f64 * 5.00)  // Encourage moving towards the king
                        + (material_gain as f64 * 100.00)  // Encourage moves that result in material advantage, discourage moves that result in material loss
-                       + (the_move.capture_materials as f64 * 25.00)  // Encourage trades
-                       + (the_move.total_hanging_materials as f64 * -15.00)  // Discourage leaving pieces hanging, even if not the active piece
-                       + (the_move.post_num_threats as f64 * 4.50)  // Encourage threatening as much as possible
-                       + (post_threatened_mat_diff * 5.50 * ((the_move.post_num_defends > 0) as i32) as f64)  // Encourage adding new threats, but don't discourage removing threats
-                       + ((-30 * the_move.hangs_piece as i32) as f64 * the_move.piece_materials as f64)  // Discourage hanging pieces
-                       + (25 * the_move.is_hanging as i32) as f64  // Encourage moving hanging pieces
-                       + (-30 * is_undo_move as i32) as f64  // Discourage repetition
-                       + (20 * (the_move.causes_check as i32)) as f64  // Encourage checking
-                       + (999_999 * (the_move.victory as i32)) as f64  // Highly encourage winning... not rocket science here.
+                       + (the_move.capture_materials as f64 * 45.00)  // Encourage trades
+                       + (adjusted_total_hanging as f64 * -20.00)  // Discourage leaving pieces hanging, even if not the active piece
+                       + (the_move.post_num_threats as f64 * 7.50)  // Encourage threatening as much as possible
+                       + (post_threatened_mat_diff * 8.50 * ((the_move.post_num_defends > 0) as i32) as f64)  // Encourage adding new threats, but don't discourage removing threats
+                       + (the_move.controlled_squares as f64 * 0.10)  // Encourage moves which result in more board control
+                       // boolean scaling values
+                       + ((-40 * the_move.hangs_piece as i32) as f64 * the_move.piece_materials as f64)  // Discourage hanging pieces with scaling depending on value being hung
+                       + (150 * the_move.is_hanging as i32) as f64  // Encourage moving hanging pieces
+                       + (-20 * is_undo_move as i32) as f64  // Discourage repetition
+                       + (35 * (the_move.causes_check as i32)) as f64  // Encourage checking
+                       // Precalculated biases
+                       + (game_end_bias as f64)  // Highly encourage winning and avoid losing... not rocket science here.
                        + specific_move_bias  // Encourage certain move types
                        + specific_piece_bias  // Encourage certain pieces to move over other types
                        + rand::random::<f64>();  // w/ random noise to prevent consistent repetition
